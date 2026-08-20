@@ -77,10 +77,36 @@ export class ScriptEditor {
   // ---------------------------------------------------------------- markup
 
   private slotMarkup(node: Node, def: BlockDef): string {
+    const labelOf = (opts: Array<[string, string]>, v: unknown) =>
+      opts.find((o) => o[0] === String(v))?.[1] ?? String(v);
+
     return def.text.replace(/\{(\w+)\}/g, (_, key: string) => {
       const slot = def.slots?.[key];
       if (!slot) return '';
       const value = node.args[key];
+
+      // Read-only blocks show their values as plain text. Disabled dropdowns
+      // truncate long sensor names and eat horizontal space the panel has not
+      // got, and there is nothing to interact with anyway.
+      if (this.readOnly) {
+        const unit = slot.kind === 'number' && slot.unit ? `<span class="unit">${slot.unit}</span>` : '';
+        if (slot.kind === 'number') {
+          const src = String(node.args[`${key}_src`] ?? '');
+          const add = Number(value) || 0;
+          if (src) {
+            const name = SENSORS.find((x) => x[0] === src)?.[1] ?? src;
+            return `<b class="val">${esc(name)}</b>${add ? ` + <b class="val">${add}</b>` : ''}${unit}`;
+          }
+          return `<b class="val">${esc(String(value))}</b>${unit}`;
+        }
+        const opts =
+          slot.kind === 'sensor'
+            ? SENSORS.map((x) => [x[0], x[1]] as [string, string])
+            : slot.kind === 'compare'
+              ? COMPARES
+              : slot.options;
+        return `<b class="val">${esc(labelOf(opts, value))}</b>`;
+      }
       if (slot.kind === 'number') {
         // Any amount may come from a sensor instead of a fixed value. That is
         // what makes aiming something the player builds rather than is given.

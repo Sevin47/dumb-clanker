@@ -22,6 +22,7 @@ const workshop = new Workshop(overlay, starterProgram(), (entrants) => {
   workshop.hide();
   canvas.classList.add('active');
   inspector.show();
+  renderer.resize();
   match = new Match(entrants);
 });
 
@@ -34,6 +35,7 @@ function toWorkshop() {
   match = null;
   canvas.classList.remove('active');
   inspector.hide();
+  renderer.resize();
   workshop.show();
 }
 

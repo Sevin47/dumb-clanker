@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { HUD_H, HUD_W, INSPECTOR_FRAC, VIEW_H, VIEW_W } from './config';
+import { HUD_H, HUD_W, VIEW_H, VIEW_W } from './config';
 import { P } from './palette';
 import type { Bot } from './bot';
 import type { Bullet, Match, Particle } from './match';
@@ -176,7 +176,9 @@ export class Renderer {
     const pad = 2.5;
     const aspect = VIEW_W / VIEW_H;
 
-    const usableW = 1 - INSPECTOR_FRAC - rosterFrac;
+    // The inspector is laid out beside the canvas rather than over it, so the
+    // only things eating into the frame are the HUD bar and the roster.
+    const usableW = 1 - rosterFrac;
     const usableH = 1 - barFrac;
 
     // Whichever axis is tighter decides the zoom.
@@ -188,7 +190,7 @@ export class Renderer {
     this.camera.up.set(0, 0, -1);
 
     // Put the middle of the arena at the middle of that clear rectangle.
-    const cxFrac = (INSPECTOR_FRAC + (1 - rosterFrac)) / 2;
+    const cxFrac = (1 - rosterFrac) / 2;
     const cyFrac = (barFrac + 1) / 2;
     this.camBase.set(
       ARENA_W / 2 - (cxFrac - 0.5) * 2 * halfW,
@@ -276,14 +278,24 @@ export class Renderer {
   }
 
   resize() {
-    // Whole integer scales only, so the pixels stay square. CSS caps the element
-    // at the viewport, which letterboxes the rare case where a scale overflows
-    // by a hair rather than dropping the whole game down a step.
-    const scale = Math.max(1, Math.floor(Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H)));
-    this.canvas.width = VIEW_W * scale;
-    this.canvas.height = VIEW_H * scale;
-    this.canvas.style.width = `${VIEW_W * scale}px`;
-    this.canvas.style.height = `${VIEW_H * scale}px`;
+    // Measure the space the canvas actually has, which is the window minus the
+    // script inspector when it is open. Measuring the window instead centres the
+    // canvas under the panel and hides the readouts along its left edge.
+    const stage = this.canvas.parentElement;
+    const availW = stage?.clientWidth || window.innerWidth;
+    const availH = stage?.clientHeight || window.innerHeight;
+
+    // Fill the space at a fixed 16:9 rather than snapping to whole multiples of
+    // the render buffer. Integer-only scaling has a cliff: lose a little width
+    // to the inspector and the whole game drops from 2x to 1x and sits in the
+    // corner. Only the upscaled 3D layer is affected, and it is nearest-
+    // neighboured either way; the HUD is drawn at this full resolution.
+    const w = Math.max(VIEW_W, Math.floor(Math.min(availW, (availH * VIEW_W) / VIEW_H)));
+    const h = Math.round((w * VIEW_H) / VIEW_W);
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.canvas.style.width = `${w}px`;
+    this.canvas.style.height = `${h}px`;
     this.out.imageSmoothingEnabled = false;
   }
 

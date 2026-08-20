@@ -52,12 +52,26 @@ html, body {
 
 button { font-family: inherit; font-size: inherit; color: inherit; }
 
-#app { height: 100%; display: grid; place-items: center; }
+#app {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+}
 
-#screen { display: none; image-rendering: pixelated; background: var(--void); max-width: 100vw; max-height: 100vh; }
+/* The arena gets whatever width the inspector leaves beside it. */
+#stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+}
+
+#screen { display: none; image-rendering: pixelated; background: var(--void); max-width: 100%; max-height: 100%; }
 #screen.active { display: block; }
 
-#overlay { display: none; width: 100%; height: 100%; overflow: hidden; }
+/* The workshop covers everything, the inspector's column included. */
+#overlay { display: none; position: absolute; inset: 0; overflow: hidden; background: var(--void); }
 #overlay.active { display: block; }
 
 /* ------------------------------------------------------------------- room */
@@ -574,13 +588,8 @@ select.ghost.small {
 
 #inspector {
   display: none;
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  /* Must match INSPECTOR_FRAC in config.ts — the camera fits the arena around it. */
-  width: 26vw;
-  min-width: 250px;
+  flex: 0 0 clamp(290px, 23vw, 400px);
+  min-width: 0;
   flex-direction: column;
   background: rgba(12, 10, 17, .82);
   border-right: 1px solid var(--line);
@@ -685,3 +694,14 @@ select.ghost.small {
 
 .ins-speeds { display: flex; gap: 3px; flex: 1.4; }
 .ins-speeds .spd { padding: 7px 2px; }
+
+/* Read-only block values: plain text, not disabled form controls. */
+.ins-script .val {
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, .26);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+.ins-script .blk-text { gap: 4px; row-gap: 2px; }
+.ins-script .unit { opacity: .7; }

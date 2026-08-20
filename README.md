@@ -3,6 +3,10 @@
 A browser-based programming game. Write **Clank Script** to control a single
 bot, then set it loose in the arena to find and defeat the competition.
 
+### ▶ [Play it](https://sevin47.github.io/dumb-clanker/)
+
+No install, no sign-up — it all runs in the browser.
+
 Every bot in the game is mechanically identical. There is nothing to build and
 nothing to buy — the only thing that makes your bot better than anyone else's is
 the program you wrote for it.
@@ -116,6 +120,20 @@ to pit two authored scripts against each other directly.
 frame to `shots/`, which is how the visuals get checked without a visible browser
 window. Both the debug handle and the endpoint are dev conveniences and should be
 stripped before this ships anywhere public.
+
+## Deploying
+
+Pushing to `main` builds the site and publishes it to GitHub Pages via
+`.github/workflows/deploy.yml`. Nothing else is needed.
+
+Two things make that work, and both bite if you forget them:
+
+- `vite.config.ts` sets `base: '/dumb-clanker/'` for production builds, because
+  Pages serves the project from a subpath. Dev still serves from `/`.
+- The `window.__clanker` debug handle is wrapped in `import.meta.env.DEV`, so it
+  is tree-shaken out of the shipped bundle rather than exposed publicly.
+
+If the repo is ever renamed, the `base` path must be renamed with it.
 
 ## Layout
 

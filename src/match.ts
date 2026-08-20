@@ -76,17 +76,10 @@ export class Match {
     this.world = new World(Vec2(0, 0));
     this.buildWalls();
 
-    // Spread the field evenly around a circle so nobody starts with an angle.
-    const n = entrants.length;
-    const radius = ARENA_SIZE * 0.32;
-    const cx = ARENA_W / 2;
-    const cy = ARENA_H / 2;
-
+    // Random placement, so no script can be tuned against a known opening.
+    const spots = this.scatter(entrants.length);
     entrants.forEach((e, i) => {
-      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-      const pos = Vec2(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
-      const facing = Math.atan2(cy - pos.y, cx - pos.x);
-      const bot = new Bot(this.world, i, e.name, e.isPlayer, pos, facing);
+      const bot = new Bot(this.world, i, e.name, e.isPlayer, spots[i], Math.random() * Math.PI * 2);
       this.bots.push(bot);
       this.vms.set(bot, new ClankVM(bot, e.program));
     });
@@ -124,6 +117,71 @@ export class Match {
       }
     });
   }
+
+  /**
+   * Random start positions, kept off the walls and apart from each other.
+   * Falls back to a ring if the arena is too crowded to place everyone.
+   */
+  private scatter(count: number): Vec2[] {
+    const margin = 5;
+    const minGap = 9;
+    const span = ARENA_SIZE - margin * 2;
+    const out: Vec2[] = [];
+
+    for (let i = 0; i < count; i++) {
+      let placed: Vec2 | null = null;
+      for (let tries = 0; tries < 300 && !placed; tries++) {
+        const p = Vec2(margin + Math.random() * span, margin + Math.random() * span);
+        if (out.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= minGap)) placed = p;
+      }
+      if (!placed) {
+        const a = (i / count) * Math.PI * 2;
+        placed = Vec2(
+          ARENA_W / 2 + Math.cos(a) * span * 0.4,
+          ARENA_H / 2 + Math.sin(a) * span * 0.4,
+        );
+      }
+      out.push(placed);
+    }
+    return out;
+  }
+
+  /**
+   * Put the player's bot back in play. It is a debugging tool: a script that
+   * has wedged itself in a corner or talked itself into a corner of its own
+   * logic can be freed without throwing away the whole battle.
+   */
+  recallPlayer() {
+    const bot = this.player;
+    if (!bot || !bot.alive || this.phase === 'over') return;
+
+    const taken = this.bots.filter((b) => b !== bot && b.alive).map((b) => b.position);
+    let spot = Vec2(ARENA_W / 2, ARENA_H / 2);
+    for (let tries = 0; tries < 300; tries++) {
+      const p = Vec2(5 + Math.random() * (ARENA_SIZE - 10), 5 + Math.random() * (ARENA_SIZE - 10));
+      if (taken.every((q) => Math.hypot(q.x - p.x, q.y - p.y) >= 10)) {
+        spot = p;
+        break;
+      }
+    }
+
+    const from = bot.position;
+    this.sparks(from.x, from.y, 24, P.spark, 2.5);
+    bot.body.setTransform(spot, Math.random() * Math.PI * 2);
+    bot.body.setLinearVelocity(Vec2(0, 0));
+    bot.body.setAngularVelocity(0);
+    bot.turret = bot.body.getAngle();
+    bot.radar = bot.body.getAngle();
+    // No free shot out of a recall.
+    bot.gunHeat = Math.max(bot.gunHeat, GUN.startHeat);
+    bot.contacts.clear();
+    bot.target = null;
+    this.vms.get(bot)?.restart();
+    this.sparks(spot.x, spot.y, 24, P.good, 2.5);
+    this.recalls++;
+  }
+
+  recalls = 0;
 
   private buildWalls() {
     const w = this.world.createBody({ type: 'static' });

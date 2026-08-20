@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { HUD_W, VIEW_H, VIEW_W } from './config';
+import { HUD_H, HUD_W, VIEW_H, VIEW_W } from './config';
 import { P } from './palette';
 import type { Bot } from './bot';
 import type { Bullet, Match, Particle } from './match';
@@ -150,6 +150,7 @@ export class Renderer {
   private pointCol: Float32Array;
 
   private lastMatch: Match | null = null;
+  private camBase = new T.Vector3();
 
   constructor(private canvas: HTMLCanvasElement) {
     this.buf = document.createElement('canvas');
@@ -162,14 +163,32 @@ export class Renderer {
     // Straight down, orthographic, whole field always visible — the Robocode
     // view. Nobody is driving, so the job of the shot is to show the geometry
     // of the fight, not to look cinematic.
-    const margin = 2.5;
-    const halfH = ARENA_H / 2 + margin;
+    //
+    // The HUD bar and the field roster sit on top of the scene, so the arena is
+    // fitted to the clear area between them and then nudged into it. Fitting to
+    // the raw viewport instead tucks the top and right walls under the readouts.
+    const barFrac = 41 / HUD_H;
+    const rosterFrac = 116 / HUD_W;
+    const pad = 2;
+
+    const halfH = (ARENA_H / 2 + pad) / (1 - barFrac);
     const halfW = halfH * (VIEW_W / VIEW_H);
     this.camera = new T.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 200);
-    this.camera.position.set(ARENA_W / 2, 60, ARENA_H / 2);
+
     // Point "up" on screen at -z, so physics +y runs down the screen.
     this.camera.up.set(0, 0, -1);
-    this.camera.lookAt(ARENA_W / 2, 0, ARENA_H / 2);
+
+    // Nudge the field clear of the readouts, but only by as much as it actually
+    // overlaps them. Shifting by the full width of a panel throws the arena off
+    // centre for no reason when it was never going to reach that far.
+    const gap = 0.015;
+    const topEdge = 0.5 - ARENA_H / (4 * halfH);
+    const rightEdge = 0.5 + ARENA_W / (4 * halfW);
+    const shiftZ = Math.max(0, barFrac + gap - topEdge) * 2 * halfH;
+    const shiftX = Math.max(0, rightEdge - (1 - rosterFrac - gap)) * 2 * halfW;
+    this.camBase.set(ARENA_W / 2 + shiftX, 60, ARENA_H / 2 - shiftZ);
+    this.camera.position.copy(this.camBase);
+    this.camera.lookAt(this.camBase.x, 0, this.camBase.z);
 
     const gl = document.createElement('canvas');
     gl.width = VIEW_W;
@@ -315,9 +334,9 @@ export class Renderer {
     // A fixed camera can still flinch when something explodes.
     const kick = m.shake > 0.2 ? m.shake * 0.02 : 0;
     this.camera.position.set(
-      ARENA_W / 2 + (Math.random() - 0.5) * kick,
-      60,
-      ARENA_H / 2 + (Math.random() - 0.5) * kick,
+      this.camBase.x + (Math.random() - 0.5) * kick,
+      this.camBase.y,
+      this.camBase.z + (Math.random() - 0.5) * kick,
     );
     this.camera.lookAt(this.camera.position.x, 0, this.camera.position.z);
 

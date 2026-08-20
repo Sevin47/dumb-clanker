@@ -33,7 +33,8 @@ One standard chassis with three things that turn **independently**:
   beam actually sweeps across one, so a script has to keep it moving — or hold it
   deliberately on somebody.
 
-The arena is a 36m square, shown top-down in full at all times. **Every bot's
+The arena is a **54m square** — about 27 bot-widths across — shown top-down in
+full at all times, with start positions randomised every battle. **Every bot's
 radar beam is drawn on the floor in its own colour**, so you can see not just
 where you are looking but where everyone else is looking too.
 
@@ -98,8 +99,14 @@ canvas to see how it works.
 
 ## Controls
 
-There are none during a battle — the bots are running their own programs. On the
-result screen, `R` runs it again and `B` goes back to the workshop.
+Nobody drives — the bots run their own programs. The buttons at the bottom left
+work at any time:
+
+| | |
+| --- | --- |
+| **Recall bot** (`C`) | Teleports your bot to a clear spot and restarts its script. For when it wedges itself in a corner, or the script talks itself into one. Not free: the gun comes back hot and everything it had scanned is forgotten. |
+| **Run again** (`R`) | Same field, fresh battle, new random positions. |
+| **Workshop** (`B`) | Back to the editor. |
 
 ## Tuning harness
 

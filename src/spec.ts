@@ -12,8 +12,8 @@ export const BOT = {
   hp: 140,
 
   /** Drive: absolute newtons, so the standard bot always handles identically. */
-  driveForce: 1500,
-  maxSpeed: 8.0,
+  driveForce: 1900,
+  maxSpeed: 10.0,
   reverseFactor: 0.65,
   /** Sideways grip. Low enough to slide a little when you throw it around. */
   grip: 0.22,
@@ -26,7 +26,7 @@ export const BOT = {
   /** Radar, mounted on the turret but aimed independently of it. */
   radarTurnRate: 6.0, // radians / second — much faster than the gun
   radarArc: 12, // degrees, total beam width
-  radarRange: 38, // metres — reaches most of the field, but not the far corners
+  radarRange: 52, // metres — reaches most of the field, but not corner to corner
 } as const;
 
 /**
@@ -65,8 +65,12 @@ export const IMPACT = {
   cooldown: 0.4,
 } as const;
 
-export const ARENA_SIZE = 36;
-export const MATCH_SECONDS = 120;
+/**
+ * A proper Robocode-sized field: ~27 bot-widths across, so there is real room to
+ * run, and finding somebody is a genuine problem rather than a formality.
+ */
+export const ARENA_SIZE = 54;
+export const MATCH_SECONDS = 180;
 
 /** Colours for up to six bots. The player is always the first. */
 export const BOT_COLORS: Array<{ body: string; dark: string; light: string; name: string }> = [

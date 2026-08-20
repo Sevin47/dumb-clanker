@@ -8,6 +8,7 @@ import { Renderer } from './render';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLElement;
+const matchbar = document.getElementById('matchbar') as HTMLElement;
 
 const renderer = new Renderer(canvas);
 initInput();
@@ -19,6 +20,7 @@ const workshop = new Workshop(overlay, starterProgram(), (entrants) => {
   lastEntrants = entrants;
   workshop.hide();
   canvas.classList.add('active');
+  matchbar.classList.add('active');
   match = new Match(entrants);
 });
 
@@ -30,8 +32,22 @@ function restart() {
 function toWorkshop() {
   match = null;
   canvas.classList.remove('active');
+  matchbar.classList.remove('active');
   workshop.show();
 }
+
+/**
+ * Free a bot that has got itself wedged, or a script that has talked itself
+ * into a corner. Deliberately not free: the gun comes back hot and everything
+ * the bot had scanned is forgotten.
+ */
+function recall() {
+  match?.recallPlayer();
+}
+
+(document.getElementById('recall') as HTMLButtonElement).onclick = recall;
+(document.getElementById('rerun') as HTMLButtonElement).onclick = restart;
+(document.getElementById('toworkshop') as HTMLButtonElement).onclick = toWorkshop;
 
 workshop.show();
 
@@ -49,14 +65,16 @@ function frame(now: number) {
     match.update(dt);
     renderer.draw(match, dt);
 
-    if (match.phase === 'over') {
-      if (pressed('r')) {
-        consume('r');
-        restart();
-      } else if (pressed('b')) {
-        consume('b');
-        toWorkshop();
-      }
+    if (pressed('c')) {
+      consume('c');
+      recall();
+    }
+    if (pressed('r')) {
+      consume('r');
+      restart();
+    } else if (pressed('b')) {
+      consume('b');
+      toWorkshop();
     }
   }
 
@@ -82,7 +100,7 @@ if (import.meta.env.DEV) {
     Match,
     programs: { starterProgram, RIVALS, rivalById, countBlocks, cloneProgram },
     /** Run one battle with no rendering and return the standings. */
-    sim(entrants: Entrant[], maxSteps = 9000) {
+    sim(entrants: Entrant[], maxSteps = Math.ceil(MATCH_SECONDS * 60) + 600) {
       const m = new Match(entrants.map((e) => ({ ...e, program: cloneProgram(e.program) })));
       for (let i = 0; i < maxSteps; i++) {
         m.update(1 / 60);

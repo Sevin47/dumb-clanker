@@ -529,3 +529,43 @@ select.ghost.small {
   background: rgba(255, 255, 255, .86);
 }
 .plus { font-weight: 700; opacity: .8; margin: 0 -2px; }
+
+/* ------------------------------------------------- in-battle controls */
+
+#matchbar {
+  display: none;
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  gap: 6px;
+  z-index: 5;
+}
+#matchbar.active { display: flex; }
+
+#matchbar button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  background: rgba(28, 25, 38, .92);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--dim);
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+}
+#matchbar button:hover { color: var(--text); border-color: var(--amber); }
+#matchbar #recall:hover { color: var(--amber); }
+
+#matchbar kbd {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0 4px;
+}

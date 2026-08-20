@@ -99,6 +99,31 @@ export class ClankVM {
     private program: Program,
   ) {}
 
+  /**
+   * Throw away all running state and start the program again from the top.
+   * Used by the recall button, so a script that has deadlocked itself can be
+   * restarted without abandoning the battle.
+   */
+  restart() {
+    this.base = null;
+    this.interrupt = null;
+    this.interruptPriority = -1;
+    this.throttle = 0;
+    this.turn = 0;
+    this.radarSpin = 0;
+    this.radarTarget = null;
+    this.turretTarget = null;
+    this.prevHealthHat = {};
+    this.activeBlockId = null;
+    this.note = '';
+    this.bot.controls.throttle = 0;
+    this.bot.controls.turn = 0;
+    this.bot.controls.fire = 0;
+    this.bot.controls.radarSpin = 0;
+    this.bot.controls.radarTarget = null;
+    this.bot.controls.turretTarget = null;
+  }
+
   private hats(op: string): Stack[] {
     return this.program.stacks.filter((s) => s.hat.op === op);
   }

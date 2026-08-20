@@ -33,9 +33,13 @@ around hunting the other bots. Knock them out before they knock out you.
 | **Radar** | Turns at 6.0 rad/s. A **12° beam** reaching 30m |
 | **Health** | One pool of 140. No component damage — the bot just scorches and smokes |
 
-The arena is a **36m square** — big enough that engagements happen at 15-25m,
-where bullet travel time genuinely matters. Radar reaches 38m, so it covers most
-of the field but not the far corners.
+The arena is a **54m square**, about 27 bot-widths across. Radar reaches 52m, so
+it covers most of the field but not corner to corner. Start positions are
+**randomised every battle**, so no script can be tuned against a known opening.
+
+A field this size has to be crossable: bots move at 10 m/s and a battle runs 180
+seconds. At the earlier 8 m/s over 120 seconds, two thirds of battles ran out the
+clock while bots were still looking for each other.
 
 ### Why the radar is a beam and not a bubble
 An all-round sensor would make radar a non-decision. A narrow beam means a
@@ -160,8 +164,11 @@ all**, because radial movement does nothing to spoil an enemy's aim.
   full-resolution canvas so it can use a readable sans at a real size. Retro
   styling is for the arena; anything the player has to *read* is optimised for
   reading.
-- **Top-down, orthographic, fixed.** The whole 36m square field is on screen at
-  all times, exactly like Robocode. Nobody is driving, so the job of the shot is
+- **Top-down, orthographic, fixed.** The whole field is on screen at all times,
+  exactly like Robocode. The camera fits the arena to the area *clear of the HUD
+  bar and the field roster*, and nudges it only as far as it actually overlaps
+  them — fitting to the raw viewport instead tucks the top and right walls under
+  the readouts. Nobody is driving, so the job of the shot is
   to show the geometry of the fight rather than to look cinematic. An
   orthographic camera means a bot in the corner is drawn the same as one in the
   middle, which matters when you are reading positions off the screen.
@@ -190,6 +197,14 @@ sub-stepping stops fast rounds tunnelling through a bot.
 - **Radial movement is not evasion.** Pacer moves constantly and has the second
   worst damage ratio in the roster. Driving at or away from someone keeps you on
   the same bearing, which is exactly where their gun already points.
+- **A bigger field changed who wins.** Lamppost, the bot that never moves, fell
+  from a 1.25 damage ratio to 0.61 the moment the arena grew: its slow heavy
+  shots simply cannot reach a moving target across 50m. Space punishes standing
+  still far more effectively than any rule could.
+- **Recall is a debugging tool, not a panic button.** It teleports the player's
+  bot clear and restarts its script, which is what you want when a script
+  deadlocks. It costs a hot gun and every radar contact, so it cannot be used to
+  dodge a shot or reposition for free.
 - **Convenience blocks quietly removed the game.** The measured cost of taking
   them out: aiming went from one block to three, and every rival script grew by
   about half. The measured *benefit*: continuous movement now costs you aim,

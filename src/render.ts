@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { HUD_H, HUD_W, VIEW_H, VIEW_W } from './config';
+import { HUD_H, HUD_W, INSPECTOR_FRAC, VIEW_H, VIEW_W } from './config';
 import { P } from './palette';
 import type { Bot } from './bot';
 import type { Bullet, Match, Particle } from './match';
@@ -167,26 +167,34 @@ export class Renderer {
     // The HUD bar and the field roster sit on top of the scene, so the arena is
     // fitted to the clear area between them and then nudged into it. Fitting to
     // the raw viewport instead tucks the top and right walls under the readouts.
+    // Three things sit on top of the scene: the HUD bar along the top, the
+    // field roster on the right, and the script inspector down the left. Fit the
+    // arena to the rectangle they leave behind and centre it there, rather than
+    // to the raw viewport, or walls end up tucked underneath the readouts.
     const barFrac = 41 / HUD_H;
     const rosterFrac = 116 / HUD_W;
-    const pad = 2;
+    const pad = 2.5;
+    const aspect = VIEW_W / VIEW_H;
 
-    const halfH = (ARENA_H / 2 + pad) / (1 - barFrac);
-    const halfW = halfH * (VIEW_W / VIEW_H);
+    const usableW = 1 - INSPECTOR_FRAC - rosterFrac;
+    const usableH = 1 - barFrac;
+
+    // Whichever axis is tighter decides the zoom.
+    const halfH = Math.max((ARENA_H / 2 + pad) / usableH, (ARENA_W / 2 + pad) / usableW / aspect);
+    const halfW = halfH * aspect;
     this.camera = new T.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 200);
 
     // Point "up" on screen at -z, so physics +y runs down the screen.
     this.camera.up.set(0, 0, -1);
 
-    // Nudge the field clear of the readouts, but only by as much as it actually
-    // overlaps them. Shifting by the full width of a panel throws the arena off
-    // centre for no reason when it was never going to reach that far.
-    const gap = 0.015;
-    const topEdge = 0.5 - ARENA_H / (4 * halfH);
-    const rightEdge = 0.5 + ARENA_W / (4 * halfW);
-    const shiftZ = Math.max(0, barFrac + gap - topEdge) * 2 * halfH;
-    const shiftX = Math.max(0, rightEdge - (1 - rosterFrac - gap)) * 2 * halfW;
-    this.camBase.set(ARENA_W / 2 + shiftX, 60, ARENA_H / 2 - shiftZ);
+    // Put the middle of the arena at the middle of that clear rectangle.
+    const cxFrac = (INSPECTOR_FRAC + (1 - rosterFrac)) / 2;
+    const cyFrac = (barFrac + 1) / 2;
+    this.camBase.set(
+      ARENA_W / 2 - (cxFrac - 0.5) * 2 * halfW,
+      60,
+      ARENA_H / 2 - (cyFrac - 0.5) * 2 * halfH,
+    );
     this.camera.position.copy(this.camBase);
     this.camera.lookAt(this.camBase.x, 0, this.camBase.z);
 

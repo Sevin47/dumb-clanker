@@ -5,10 +5,11 @@ import { Match, type Entrant } from './match';
 import { MATCH_SECONDS } from './spec';
 import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram } from './program';
 import { Renderer } from './render';
+import { Inspector } from './inspector';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLElement;
-const matchbar = document.getElementById('matchbar') as HTMLElement;
+const inspectorHost = document.getElementById('inspector') as HTMLElement;
 
 const renderer = new Renderer(canvas);
 initInput();
@@ -20,7 +21,7 @@ const workshop = new Workshop(overlay, starterProgram(), (entrants) => {
   lastEntrants = entrants;
   workshop.hide();
   canvas.classList.add('active');
-  matchbar.classList.add('active');
+  inspector.show();
   match = new Match(entrants);
 });
 
@@ -32,7 +33,7 @@ function restart() {
 function toWorkshop() {
   match = null;
   canvas.classList.remove('active');
-  matchbar.classList.remove('active');
+  inspector.hide();
   workshop.show();
 }
 
@@ -45,9 +46,7 @@ function recall() {
   match?.recallPlayer();
 }
 
-(document.getElementById('recall') as HTMLButtonElement).onclick = recall;
-(document.getElementById('rerun') as HTMLButtonElement).onclick = restart;
-(document.getElementById('toworkshop') as HTMLButtonElement).onclick = toWorkshop;
+const inspector = new Inspector(inspectorHost, recall, restart, toWorkshop);
 
 workshop.show();
 
@@ -62,12 +61,34 @@ function frame(now: number) {
 
   if (match) {
     // Nobody drives. Every bot is running its own program.
-    match.update(dt);
+    const t = inspector.transport;
+    if (!t.paused) match.update(dt * t.speed);
+    else if (t.stepOnce) {
+      t.stepOnce = false;
+      match.update(1 / 60);
+    }
     renderer.draw(match, dt);
+    inspector.update(match, now);
 
     if (pressed('c')) {
       consume('c');
       recall();
+    }
+    if (pressed(' ')) {
+      consume(' ');
+      inspector.togglePause();
+    }
+    if (pressed('.')) {
+      consume('.');
+      inspector.step();
+    }
+    if (pressed('[')) {
+      consume('[');
+      inspector.cycleSpeed(-1);
+    }
+    if (pressed(']')) {
+      consume(']');
+      inspector.cycleSpeed(1);
     }
     if (pressed('r')) {
       consume('r');
@@ -95,6 +116,9 @@ if (import.meta.env.DEV) {
     },
     get workshop() {
       return workshop;
+    },
+    get inspector() {
+      return inspector;
     },
     renderer,
     Match,

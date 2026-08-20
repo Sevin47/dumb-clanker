@@ -94,10 +94,23 @@ export class ClankVM {
   activeBlockId: string | null = null;
   note = '';
 
+  /**
+   * Profiling, so the arena can show which blocks actually run and where the
+   * time goes. A block that never runs is usually the bug: an event that never
+   * fires, or a branch whose test is never true.
+   */
+  readonly hits = new Map<string, number>();
+  readonly seconds = new Map<string, number>();
+  elapsed = 0;
+
   constructor(
     private bot: Bot,
-    private program: Program,
+    readonly program: Program,
   ) {}
+
+  private tally(id: string) {
+    this.hits.set(id, (this.hits.get(id) ?? 0) + 1);
+  }
 
   /**
    * Throw away all running state and start the program again from the top.
@@ -129,6 +142,7 @@ export class ClankVM {
   }
 
   private startContext(stack: Stack): Context {
+    this.tally(stack.hat.id);
     return { stack, frames: [{ body: stack.body, index: 0 }], action: null, done: false };
   }
 
@@ -410,6 +424,7 @@ export class ClankVM {
       const node = frame.body[frame.index++];
       this.currentNode = node;
       this.activeBlockId = node.id;
+      this.tally(node.id);
 
       switch (node.op) {
         case 'forever':
@@ -459,6 +474,12 @@ export class ClankVM {
 
   tick(dt: number, m: Match) {
     this.clock += dt;
+    this.elapsed += dt;
+    // Time is charged to whichever block is currently holding the bot, so a
+    // long "drive forward 3s" shows up as the expensive thing it is.
+    if (this.activeBlockId) {
+      this.seconds.set(this.activeBlockId, (this.seconds.get(this.activeBlockId) ?? 0) + dt);
+    }
     const s = this.senses(m);
 
     if (!this.base) {

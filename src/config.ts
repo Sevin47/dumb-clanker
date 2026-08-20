@@ -11,6 +11,9 @@ export const VIEW_H = 360;
 export const HUD_W = 480;
 export const HUD_H = 270;
 
+/** Width of the script inspector, as a fraction of the window. Matches the CSS. */
+export const INSPECTOR_FRAC = 0.26;
+
 /**
  * Arena floor, in metres. Squarer than the original top-down pit: a chase
  * camera spends far too much time jammed against a long wall otherwise.

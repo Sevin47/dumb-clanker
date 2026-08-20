@@ -58,6 +58,12 @@ export class ScriptEditor {
   private drag: DragPayload | null = null;
   /** Set while a match is running so the live block can be highlighted. */
   highlight: string | null = null;
+  /**
+   * Read-only mode renders the same blocks without the drop gaps, drag handles
+   * or delete buttons, so the arena can show the running script using exactly
+   * the visuals the player wrote it in.
+   */
+  private readOnly = false;
 
   constructor(
     private program: Program,
@@ -80,13 +86,14 @@ export class ScriptEditor {
         // what makes aiming something the player builds rather than is given.
         const src = String(node.args[`${key}_src`] ?? '');
         const opts = [['', 'a set amount'] as [string, string], ...SENSORS.map((s) => [s[0], s[1]] as [string, string])];
-        const picker = `<select class="slot src" data-src="${key}" draggable="false">${opts
+        const picker = `<select class="slot src" data-src="${key}" draggable="false" ${this.readOnly ? 'disabled' : ''}>${opts
           .map((o) => `<option value="${o[0]}" ${o[0] === src ? 'selected' : ''}>${esc(o[1])}</option>`)
           .join('')}</select>`;
         const plus = src ? '<span class="plus">+</span>' : '';
+        const off = this.readOnly ? 'disabled' : '';
         return `${picker}${plus}<input class="slot num" type="number" data-slot="${key}" value="${value}"
-                  min="${slot.min}" max="${slot.max}" step="${Math.abs(slot.max) <= 10 ? 0.1 : 1}" draggable="false" />${
-                  slot.unit ? `<span class="unit">${slot.unit}</span>` : ''}`;
+                  min="${slot.min}" max="${slot.max}" step="${Math.abs(slot.max) <= 10 ? 0.1 : 1}"
+                  draggable="false" ${off} />${slot.unit ? `<span class="unit">${slot.unit}</span>` : ''}`;
       }
       const options =
         slot.kind === 'sensor'
@@ -94,13 +101,14 @@ export class ScriptEditor {
           : slot.kind === 'compare'
             ? COMPARES
             : slot.options;
-      return `<select class="slot pick" data-slot="${key}" draggable="false">${options
+      return `<select class="slot pick" data-slot="${key}" draggable="false" ${this.readOnly ? 'disabled' : ''}>${options
         .map((o) => `<option value="${o[0]}" ${o[0] === value ? 'selected' : ''}>${esc(o[1])}</option>`)
         .join('')}</select>`;
     });
   }
 
   private gap(container: string, index: number): string {
+    if (this.readOnly) return '';
     return `<div class="gap" data-container="${container}" data-index="${index}"></div>`;
   }
 
@@ -108,9 +116,10 @@ export class ScriptEditor {
     const def = BLOCK_BY_OP[node.op];
     if (!def) return '';
     const live = this.highlight === node.id ? ' live' : '';
-    const head = `<div class="blk cat-${def.cat}${live}" draggable="true"
+    const head = `<div class="blk cat-${def.cat}${live}" draggable="${!this.readOnly}"
         data-node="${node.id}" data-container="${container}" data-idx="${index}"
-        title="${esc(def.help)}"><span class="blk-text">${this.slotMarkup(node, def)}</span></div>`;
+        title="${esc(def.help)}"><span class="blk-text">${this.slotMarkup(node, def)}</span>
+        ${this.readOnly ? '<span class="prof"></span>' : ''}</div>`;
 
     if (!def.bodies) return head;
 
@@ -133,9 +142,14 @@ export class ScriptEditor {
     const stack = this.program.stacks[stackIndex];
     const def = BLOCK_BY_OP[stack.hat.op];
     const live = this.highlight === stack.hat.id ? ' live' : '';
-    const hat = `<div class="blk hat cat-event${live}" data-hat="${stackIndex}" title="${esc(def?.help ?? '')}">
+    const hat = `<div class="blk hat cat-event${live}" data-hat="${stackIndex}"
+        data-node="${stack.hat.id}" title="${esc(def?.help ?? '')}">
         <span class="blk-text">${def ? this.slotMarkup(stack.hat, def) : stack.hat.op}</span>
-        <button class="kill" data-killstack="${stackIndex}" title="Delete this whole stack">&times;</button>
+        ${
+          this.readOnly
+            ? '<span class="prof"></span>'
+            : `<button class="kill" data-killstack="${stackIndex}" title="Delete this whole stack">&times;</button>`
+        }
       </div>`;
     const rows = stack.body
       .map((n, i) => this.gap(String(stackIndex), i) + this.renderNode(n, String(stackIndex), i))
@@ -161,6 +175,14 @@ export class ScriptEditor {
   canvas(): string {
     const stacks = this.program.stacks.map((_, i) => this.renderStack(i)).join('');
     return `${stacks}<div class="newstack" data-newstack="1">Drop a “when…” block here to start another stack</div>`;
+  }
+
+  /** The same script, rendered for looking at rather than editing. */
+  staticCanvas(): string {
+    this.readOnly = true;
+    const html = this.program.stacks.map((_, i) => this.renderStack(i)).join('');
+    this.readOnly = false;
+    return html;
   }
 
   // ---------------------------------------------------------------- events

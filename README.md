@@ -97,13 +97,26 @@ canvas to see how it works.
 | **Orbit** | Circles whatever it finds while tracking with radar and gun. |
 | **Coward** | Keeps its distance and plinks with light, fast rounds. |
 
+## Watching your script run
+
+The panel down the left of the arena shows your script exactly as you wrote it,
+with the block currently executing outlined in white. Every block carries a
+running tally:
+
+- `11× · 8%` — it ran eleven times and held the bot for 8% of the battle.
+- **`never`** — it has not run at all. This is usually the actual bug: an event
+  that never fires, or a branch whose test is never true. Blocks that never run
+  are dimmed, and a warning appears if a whole stack has stayed cold.
+
 ## Controls
 
-Nobody drives — the bots run their own programs. The buttons at the bottom left
-work at any time:
+Nobody drives — the bots run their own programs. Everything is in the left panel:
 
 | | |
 | --- | --- |
+| **Pause** (`Space`) | Freeze the battle. The script panel stays live, so you can read where it stopped. |
+| **Step** (`.`) | Advance a single frame. |
+| **0.5× / 1× / 2× / 4×** (`[` `]`) | Battle speed. Slow it down to watch a turret track; speed it up to reach the interesting part. |
 | **Recall bot** (`C`) | Teleports your bot to a clear spot and restarts its script. For when it wedges itself in a corner, or the script talks itself into one. Not free: the gun comes back hot and everything it had scanned is forgotten. |
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
 | **Workshop** (`B`) | Back to the editor. |
@@ -156,3 +169,4 @@ If the repo is ever renamed, the `base` path must be renamed with it.
 | `src/render.ts` | 3D scene, camera framing, compositing |
 | `src/hud.ts` | HUD, field roster, result standings |
 | `src/workshop.ts` | Workshop screen: editor plus battle setup |
+| `src/inspector.ts` | Arena-side script view, live highlight, profiling, transport |

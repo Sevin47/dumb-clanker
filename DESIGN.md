@@ -156,7 +156,31 @@ all**, because radial movement does nothing to spoil an enemy's aim.
 
 ---
 
-## 5. Presentation
+## 5. Watching the script run
+
+A block language hides its own failures. A bot that drives in circles looks the
+same whether the script is doing what you asked or silently skipping half of it,
+and no amount of watching the arena will tell you which.
+
+So the arena carries a debug console down its left side:
+
+- **The script, as written**, in the same blocks — not a textual log of it.
+- **The executing block outlined in white**, moving as it runs.
+- **Per-block counters**: how many times each block fired, and what share of the
+  battle it held. A block that costs 40% of the match is the first place to look
+  when a bot feels sluggish.
+- **`never` markers.** Any block that has not run is dimmed and labelled, and a
+  warning appears if a whole stack has stayed cold. This is the single most
+  valuable readout: an event hat that never fires, or an `if` whose test is never
+  true, is the most common way a script quietly does nothing.
+- **Transport controls**: pause, single-step, and 0.5× to 4× speed. Slow motion
+  is how you see whether a turret is actually tracking; fast forward is how you
+  get to the part of the battle you care about.
+
+The script markup is built once per battle and only classes and a few numbers
+change per frame — re-rendering a script at 60fps would cost more than the game.
+
+## 6. Presentation
 
 - **Pixel art**: the 3D scene renders to a 480x270 buffer and is upscaled with
   no smoothing.
@@ -179,7 +203,7 @@ all**, because radial movement does nothing to spoil an enemy's aim.
 
 ---
 
-## 6. Technology
+## 7. Technology
 
 **Web / TypeScript.** `planck.js` for 2D physics, `three.js` for presentation,
 and a small hand-written interpreter for Clank Script. Bullets are integrated by
@@ -188,7 +212,7 @@ sub-stepping stops fast rounds tunnelling through a bot.
 
 ---
 
-## 7. Notes from implementation
+## 8. Notes from implementation
 
 - **A stationary bot must not be competitive, and nearly was.** Lamppost — a bot
   whose entire program is "sweep and shoot" — tied for first until the gun

@@ -77,30 +77,28 @@ const stack = (hatOp: string, hatArgs: Record<string, string | number>, body: No
 const sv = (sensor: string, add = 0) => ({ n: add, n_src: sensor });
 
 /**
- * The script every new bot starts with, and the game's tutorial.
+ * The script a new bot starts with.
  *
- * Nothing here aims for you. The radar is held on the target by feeding "radar
- * turn needed" into a turn block, the gun is swung the same way, and firing is
- * a decision you make once the gun is actually lined up and cool. That is three
- * blocks where a single "aim and fire" used to sit, and each of the three is a
- * choice you can get wrong.
+ * Deliberately poor, and measured to be so: about 2 wins in 10 against the
+ * roster, dealing roughly half the damage it takes. It shows the one pattern
+ * worth copying — sweep, and when the beam finds somebody, swing the gun onto
+ * them and shoot — and then does everything else badly. It drives in long
+ * straight lines, never holds the radar on anyone, fires the weakest round in
+ * the game, and never checks whether the gun is lined up first.
+ *
+ * A starter that already plays well leaves nothing to work out.
  */
 export const starterProgram = (): Program => ({
   stacks: [
     stack('when_start', {}, [
       n('forever', {}, [
         n('sweep', { dir: 'right' }),
-        n('drive', { dir: 'forward', n: 1.2 }),
-        n('turn_body', { dir: 'right', n: 40 }),
+        n('drive', { dir: 'forward', n: 2.5 }),
+        n('turn_body', { dir: 'right', n: 45 }),
       ]),
     ]),
-    stack('when_scanned', {}, [
-      n('turn_radar', { dir: 'right', ...sv('radar_turn') }),
-      n('turn_turret', { dir: 'right', ...sv('turret_turn') }),
-      n('if', { sensor: 'gun_error', cmp: 'lt', n: 5 }, [n('fire', { n: 1.2 })]),
-      n('strafe', { dir: 'left', n: 0.9 }),
-    ]),
-    stack('when_wall', {}, [n('drive', { dir: 'backward', n: 0.8 }), n('turn_body', { dir: 'right', n: 100 })]),
+    stack('when_scanned', {}, [n('turn_turret', { dir: 'right', ...sv('turret_turn') }), n('fire', { n: 0.5 })]),
+    stack('when_wall', {}, [n('drive', { dir: 'backward', n: 0.8 }), n('turn_body', { dir: 'right', n: 120 })]),
   ],
 });
 

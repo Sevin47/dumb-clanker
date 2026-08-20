@@ -72,6 +72,11 @@ if [how far my turret is off target] is less than [5]
 
 Each turn corrects **once**, so a moving target needs re-aiming every lap.
 
+The starter script is deliberately weak — about 2 wins in 10 against the roster.
+It shows the one pattern worth copying (sweep, and when the beam finds somebody,
+swing the gun onto them and shoot) and does everything else badly, so there is
+something left to work out. Rival scripts are **not** copyable.
+
 Blocks are grouped by what they command: **Moving** (the hull), **Turret**,
 **Radar**, plus **Events** and **Control**. Drag from the palette onto the gaps
 that light up; drag one back to the palette to bin it.

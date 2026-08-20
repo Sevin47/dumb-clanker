@@ -205,10 +205,6 @@ export class Workshop {
               <h2>Clank Script</h2>
               <span class="blockcount">${blocks} blocks</span>
               <button class="ghost small" id="resetscript">Starter script</button>
-              <select class="ghost small" id="copyrival">
-                <option value="">Copy a rival&rsquo;s script&hellip;</option>
-                ${RIVALS.map((r) => `<option value="${r.id}">${r.name}</option>`).join('')}
-              </select>
             </div>
             <div class="script-canvas">${this.editor.canvas()}</div>
           </main>
@@ -305,13 +301,6 @@ export class Workshop {
         this.render();
       };
     });
-
-    const copy = this.root.querySelector<HTMLSelectElement>('#copyrival')!;
-    copy.onchange = () => {
-      if (!copy.value) return;
-      this.setProgram(rivalById(copy.value).program());
-      this.render();
-    };
 
     this.root.querySelector<HTMLButtonElement>('#fight')!.onclick = () => {
       if (this.field.length === 0) return;

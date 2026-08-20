@@ -17,6 +17,8 @@ export class Workshop {
   field: string[];
   name: string;
   private editor: ScriptEditor;
+  /** Which column shows when the screen is too narrow for all three. */
+  private pane: 'blocks' | 'script' | 'battle' = 'script';
   private file: SaveFile;
   private storageBroken = false;
   private flash = '';
@@ -120,7 +122,7 @@ export class Workshop {
         ${
           this.storageBroken
             ? '<p class="warn error">This browser will not let the game save. Use Export to keep your work.</p>'
-            : '<p class="autosave">Autosaves as you edit.</p>'
+            : '<p class="autosave">Saved as you type.</p>'
         }
       </section>`;
   }
@@ -155,7 +157,7 @@ export class Workshop {
         <h2>The battle</h2>
         <p class="explain">You against ${this.field.length || 'nobody'}${
           this.field.length ? ` other bot${this.field.length > 1 ? 's' : ''}` : ''
-        }. Add the same one twice if you want to.</p>
+        }. The same one can go in twice.</p>
         <ol class="field">
           <li class="you"><span class="dot d0"></span>You</li>
           ${rows || '<li class="empty">Nobody else yet</li>'}
@@ -185,18 +187,23 @@ export class Workshop {
             <span class="logo">DUMB CLANKER</span>
             <span class="where">Workshop</span>
           </div>
-          <p class="pitch">Write a program. Set it loose. Every bot is identical &mdash; the code is the difference.</p>
+          <p class="pitch">Every bot is the same. Only the code is different.</p>
+          <nav class="mtabs">
+            <button data-pane="blocks" class="${this.pane === 'blocks' ? 'on' : ''}">Blocks</button>
+            <button data-pane="script" class="${this.pane === 'script' ? 'on' : ''}">Script</button>
+            <button data-pane="battle" class="${this.pane === 'battle' ? 'on' : ''}">Battle</button>
+          </nav>
         </header>
 
-        <div class="bays program">
+        <div class="bays program" data-pane="${this.pane}">
           <aside class="palette" data-bin="1">
             <div class="rack-head">
               <h2>Blocks</h2>
-              <p class="pal-hint">Drag into the script. Drag a block back here to bin it.</p>
+              <p class="pal-hint">Tap a block, then tap a gap in the script. Dragging works too. To delete a block, tap it and then tap here.</p>
             </div>
             <div class="pal-list">${this.editor.palette()}</div>
             <div class="blockhelp empty" id="blockhelp">
-              <p>Hover a block to see exactly what it does and when it finishes.</p>
+              <p>Pick a block to read what it does.</p>
             </div>
           </aside>
 
@@ -212,23 +219,23 @@ export class Workshop {
           <aside class="readout">
             <section class="card">
               <h2>How it runs</h2>
-              <p class="explain"><b>When the match starts</b> is your standing plan &mdash; put a
-                <b>forever</b> block in it.</p>
-              <p class="explain">Every other <b>when&hellip;</b> stack interrupts it, runs to the end,
-                then your plan carries on where it left off.</p>
-              <p class="explain">The hull, the turret and the radar all turn separately. Your radar is a
-                narrow beam &mdash; keep it moving or you will not find anyone.</p>
-              <p class="explain">Nothing aims for you. Any amount can be driven by a sensor instead of a
-                fixed number: set a turn block to <b>turret turn needed</b> and it swings the gun onto
-                the target. It corrects <b>once</b>, so run it every lap.</p>
-              <p class="explain">Then decide for yourself when to shoot &mdash;
-                <b>if how far my turret is off target is less than 5, fire</b>.</p>
+              <p class="explain"><b>When the battle starts</b> is your standing plan. Put a
+                <b>forever</b> block inside it.</p>
+              <p class="explain">Every other <b>when</b> stack cuts in, runs to the end, then hands back
+                to your plan at the point it left.</p>
+              <p class="explain">The hull, the turret and the radar turn separately. The radar is a
+                narrow beam, so keep it moving or you will not find anybody.</p>
+              <p class="explain">Nothing aims for you. Any amount can come from a sensor instead of a
+                fixed number. Put <b>turret: how far to turn</b> into a turn block and the gun swings
+                onto the target. It corrects once, so run it every lap.</p>
+              <p class="explain">Then choose when to shoot. A good test is
+                <b>if turret: how far off target is less than 5</b>.</p>
             </section>
             ${this.libraryCard()}
             ${this.battleCard()}
             <button id="fight" ${this.field.length === 0 ? 'disabled' : ''}>
               ${this.field.length === 0 ? 'Add an opponent' : 'Fight'}</button>
-            <p class="keys">Nobody drives. Your script does.</p>
+            <p class="keys">Nobody drives. The script does.</p>
           </aside>
         </div>
       </div>`;
@@ -239,6 +246,13 @@ export class Workshop {
 
   private wire() {
     const q = <T extends HTMLElement>(sel: string) => Array.from(this.root.querySelectorAll<T>(sel));
+
+    q<HTMLButtonElement>('nav.mtabs [data-pane]').forEach((b) => {
+      b.onclick = () => {
+        this.pane = b.dataset.pane as 'blocks' | 'script' | 'battle';
+        this.render();
+      };
+    });
 
     q<HTMLButtonElement>('[data-add]').forEach((b) => {
       b.onclick = () => {

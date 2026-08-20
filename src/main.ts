@@ -22,6 +22,7 @@ const workshop = new Workshop(overlay, (entrants) => {
   lastEntrants = entrants;
   workshop.hide();
   canvas.classList.add('active');
+  inspectorToggle.hidden = false;
   inspector.show();
   renderer.resize();
   match = new Match(entrants);
@@ -35,6 +36,8 @@ function restart() {
 function toWorkshop() {
   match = null;
   canvas.classList.remove('active');
+  inspectorHost.classList.remove('open');
+  inspectorToggle.hidden = true;
   inspector.hide();
   renderer.resize();
   workshop.show();
@@ -50,6 +53,14 @@ function recall() {
 }
 
 const inspector = new Inspector(inspectorHost, recall, restart, toWorkshop);
+
+// On a narrow screen the inspector slides over the arena rather than sitting
+// beside it, so it needs a way to open and close.
+const inspectorToggle = document.getElementById('inspector-toggle') as HTMLButtonElement;
+inspectorToggle.onclick = () => {
+  const open = inspectorHost.classList.toggle('open');
+  inspectorToggle.textContent = open ? 'Close' : 'Script';
+};
 
 workshop.show();
 

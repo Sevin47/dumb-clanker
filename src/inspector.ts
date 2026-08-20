@@ -54,8 +54,8 @@ export class Inspector {
       <div class="ins-script" id="ins-script"></div>
       <p class="ins-note" id="ins-note"></p>
       <div class="ins-transport">
-        <button id="ins-pause" title="Pause the battle (Space)">Pause</button>
-        <button id="ins-step" title="Advance one frame (.)">Step</button>
+        <button id="ins-pause" title="Pause the battle. Shortcut: space">Pause</button>
+        <button id="ins-step" title="Move on one frame. Shortcut: full stop">Step</button>
         <span class="ins-speeds">
           ${SPEEDS.map(
             (s) => `<button class="spd ${s === 1 ? 'on' : ''}" data-speed="${s}">${s}&times;</button>`,
@@ -63,9 +63,9 @@ export class Inspector {
         </span>
       </div>
       <div class="ins-actions">
-        <button id="ins-recall" title="Free a stuck bot and restart its script (C)">Recall bot</button>
-        <button id="ins-rerun" title="Run the same battle again (R)">Run again</button>
-        <button id="ins-workshop" title="Back to the editor (B)">Workshop</button>
+        <button id="ins-recall" title="Free a stuck bot and start its script again. Shortcut: C">Recall bot</button>
+        <button id="ins-rerun" title="Run the same battle again. Shortcut: R">Run again</button>
+        <button id="ins-workshop" title="Back to the editor. Shortcut: B">Workshop</button>
       </div>`;
 
     this.scriptHost = this.root.querySelector('#ins-script')!;
@@ -179,8 +179,8 @@ export class Inspector {
     const dead = vm.program.stacks.filter((s) => !vm.hits.get(s.hat.id));
     if (!dead.length) return null;
     return dead.length === 1
-      ? 'One stack has never run. Its event may never fire.'
-      : `${dead.length} stacks have never run. Their events may never fire.`;
+      ? 'One stack has never run. Its event may never happen.'
+      : `${dead.length} stacks have never run. Their events may never happen.`;
   }
 
   private paintStats(vm: ClankVM) {

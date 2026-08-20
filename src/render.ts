@@ -103,8 +103,9 @@ class BotView {
     const b = this.bot;
     const p = b.position;
 
-    this.group.visible = true;
-    this.group.position.set(p.x, b.alive ? 0 : -0.18, p.y);
+    // A beaten bot is gone, not lying about the floor getting in the way.
+    this.group.visible = b.alive;
+    this.group.position.set(p.x, 0, p.y);
     this.group.rotation.y = -b.heading;
 
     const mat = this.hull.material as T.MeshLambertMaterial;
@@ -150,6 +151,7 @@ export class Renderer {
   private pointCol: Float32Array;
 
   private lastMatch: Match | null = null;
+  private hudW = HUD_W;
   private camBase = new T.Vector3();
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -288,14 +290,22 @@ export class Renderer {
     // Fill the space at a fixed 16:9 rather than snapping to whole multiples of
     // the render buffer. Integer-only scaling has a cliff: lose a little width
     // to the inspector and the whole game drops from 2x to 1x and sits in the
-    // corner. Only the upscaled 3D layer is affected, and it is nearest-
-    // neighboured either way; the HUD is drawn at this full resolution.
-    const w = Math.max(VIEW_W, Math.floor(Math.min(availW, (availH * VIEW_W) / VIEW_H)));
-    const h = Math.round((w * VIEW_H) / VIEW_W);
-    this.canvas.width = w;
-    this.canvas.height = h;
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
+    // corner.
+    const cssW = Math.floor(Math.min(availW, (availH * VIEW_W) / VIEW_H));
+    const cssH = Math.round((cssW * VIEW_H) / VIEW_W);
+
+    // The backing store never drops below the render buffer, so the picture
+    // stays sharp on a big screen and simply scales down on a small one.
+    const backW = Math.max(VIEW_W, cssW);
+    this.canvas.width = backW;
+    this.canvas.height = Math.round((backW * VIEW_H) / VIEW_W);
+    this.canvas.style.width = `${cssW}px`;
+    this.canvas.style.height = `${cssH}px`;
+
+    // A phone gets a coarser HUD grid, so the readouts come out big enough to
+    // read instead of eight pixels tall.
+    this.hudW = cssW < 620 ? 330 : HUD_W;
+    this.hud.setLayout(this.hudW, Math.round((this.hudW * HUD_H) / HUD_W));
     this.out.imageSmoothingEnabled = false;
   }
 
@@ -369,7 +379,7 @@ export class Renderer {
     this.out.imageSmoothingEnabled = false;
     this.out.drawImage(this.buf, 0, 0, this.canvas.width, this.canvas.height);
 
-    const scale = this.canvas.width / HUD_W;
+    const scale = this.canvas.width / this.hudW;
     this.out.save();
     this.out.setTransform(scale, 0, 0, scale, 0, 0);
     this.out.imageSmoothingEnabled = true;

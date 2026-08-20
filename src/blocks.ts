@@ -163,7 +163,7 @@ export const BLOCKS: BlockDef[] = [
     text: 'when the battle starts',
     hat: true,
     priority: 0,
-    help: 'Runs once, at the start. This is your standing plan — put a "forever" block inside it or the bot will finish and then do nothing.',
+    help: 'Runs once, at the start. This is your standing plan. put a "forever" block inside it or the bot will finish and then do nothing.',
   },
   {
     op: 'when_scanned',
@@ -266,7 +266,7 @@ export const BLOCKS: BlockDef[] = [
     cat: 'turret',
     text: 'turn turret {dir} by {n}',
     slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(45) },
-    help: 'Swings the turret independently of the hull, about 149 degrees a second. Finishes when it arrives. Set the amount to "turret: how far to turn" and it aims at the target — but only for where they were at that instant, so run it every lap.',
+    help: 'Swings the turret independently of the hull, about 149 degrees a second. Finishes when it arrives. Set the amount to "turret: how far to turn" and it aims at the target. but only for where they were at that instant, so run it every lap.',
   },
   {
     op: 'fire',
@@ -282,14 +282,14 @@ export const BLOCKS: BlockDef[] = [
     cat: 'radar',
     text: 'start sweeping radar {dir}',
     slots: { dir: { kind: 'choice', def: 'right', options: DIR } },
-    help: 'Sets the radar spinning and moves straight on — it does not wait. The beam keeps turning until another radar block changes it. This is how you find people.',
+    help: 'Sets the radar spinning and moves straight on. it does not wait. The beam keeps turning until another radar block changes it. This is how you find people.',
   },
   {
     op: 'turn_radar',
     cat: 'radar',
     text: 'turn radar {dir} by {n}',
     slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(90) },
-    help: 'Stops any sweep and swings the radar by that much, about 344 degrees a second. Finishes when it arrives. Set the amount to "radar: how far to turn" to hold the beam on the target — once per run, so repeat it.',
+    help: 'Stops any sweep and swings the radar by that much, about 344 degrees a second. Finishes when it arrives. Set the amount to "radar: how far to turn" to hold the beam on the target. once per run, so repeat it.',
   },
 
   // ------------------------------------------------------------- control
@@ -337,7 +337,7 @@ export const BLOCKS: BlockDef[] = [
     cat: 'control',
     text: 'wait for {n}',
     slots: { n: secs(0.5) },
-    help: 'Pauses the script. Whatever the bot was already doing — driving, sweeping — carries on while it waits.',
+    help: 'Pauses the script. Whatever the bot was already doing. driving, sweeping. carries on while it waits.',
   },
   {
     op: 'wait_until',

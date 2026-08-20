@@ -12,7 +12,19 @@ const FONT = 'system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif
  * sans instead of a tiny monospace.
  */
 export class Hud {
+  /**
+   * Layout size. A phone gets a smaller grid so the same numbers come out
+   * physically bigger, otherwise the readouts land at about eight pixels tall.
+   */
+  private w = HUD_W;
+  private h = HUD_H;
+
   constructor(private c: CanvasRenderingContext2D) {}
+
+  setLayout(w: number, h: number) {
+    this.w = w;
+    this.h = h;
+  }
 
   text(
     s: string,
@@ -50,9 +62,9 @@ export class Hud {
   private topBar(m: Match) {
     const c = this.c;
     c.fillStyle = P.ink;
-    c.fillRect(0, 0, HUD_W, 40);
+    c.fillRect(0, 0, this.w, 40);
     c.fillStyle = P.line;
-    c.fillRect(0, 40, HUD_W, 1);
+    c.fillRect(0, 40, this.w, 1);
 
     const me = m.player;
     this.text('YOUR BOT', 8, 5, me.colors.light, 11, 700);
@@ -67,18 +79,18 @@ export class Hud {
 
     const t = Math.max(0, Math.ceil(m.timeLeft));
     const label = `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`;
-    this.text(label, HUD_W / 2, 6, t <= 10 ? P.danger : P.text, 17, 700, 'center');
+    this.text(label, this.w / 2, 6, t <= 10 ? P.danger : P.text, 17, 700, 'center');
     const n = m.alive.length;
-    this.text(`${n} BOT${n === 1 ? '' : 'S'} LEFT`, HUD_W / 2, 27, P.textDim, 8, 600, 'center');
+    this.text(`${n} BOT${n === 1 ? '' : 'S'} LEFT`, this.w / 2, 27, P.textDim, 8, 600, 'center');
     c.textAlign = 'left';
   }
 
   /** Every bot in the battle, so a melee stays readable. */
   private roster(m: Match) {
     const c = this.c;
-    const x = HUD_W - 116;
+    const x = this.w - 116;
     let y = 48;
-    this.text('FIELD', HUD_W - 8, y, P.textDim, 8, 700, 'right');
+    this.text('FIELD', this.w - 8, y, P.textDim, 8, 700, 'right');
     y += 12;
 
     for (const bot of m.bots) {
@@ -102,7 +114,7 @@ export class Hud {
   private countdown(m: Match) {
     const n = Math.ceil(m.countdown - 0.5);
     const label = n > 0 ? String(n) : 'FIGHT';
-    this.text(label, HUD_W / 2, HUD_H / 2 - 18, n > 0 ? P.text : P.spark, 34, 700, 'center');
+    this.text(label, this.w / 2, this.h / 2 - 18, n > 0 ? P.text : P.spark, 34, 700, 'center');
   }
 
   private result(m: Match) {
@@ -113,8 +125,8 @@ export class Hud {
     const rows = r.standings.length;
     const h = 96 + rows * 15;
     const w = 300;
-    const x = (HUD_W - w) / 2;
-    const y = (HUD_H - h) / 2 + 8;
+    const x = (this.w - w) / 2;
+    const y = (this.h - h) / 2 + 8;
 
     c.globalAlpha = 0.9;
     c.fillStyle = P.ink;
@@ -126,8 +138,8 @@ export class Hud {
 
     const won = r.winner === m.player;
     const title = !r.winner ? 'NOBODY WINS' : won ? 'YOU WIN' : `${r.winner.name.toUpperCase()} WINS`;
-    this.text(title, HUD_W / 2, y + 12, !r.winner ? P.text : won ? P.good : P.danger, 22, 700, 'center');
-    this.text(r.reason, HUD_W / 2, y + 40, P.textDim, 10, 600, 'center');
+    this.text(title, this.w / 2, y + 12, !r.winner ? P.text : won ? P.good : P.danger, 22, 700, 'center');
+    this.text(r.reason, this.w / 2, y + 40, P.textDim, 10, 600, 'center');
 
     let ry = y + 60;
     this.text('BOT', x + 16, ry, P.textDim, 8, 700);
@@ -146,6 +158,6 @@ export class Hud {
       ry += 15;
     });
 
-    this.text('R  run it again          B  back to the workshop', HUD_W / 2, y + h - 20, P.spark, 10, 600, 'center');
+    this.text('R  run it again          B  back to the workshop', this.w / 2, y + h - 20, P.spark, 10, 600, 'center');
   }
 }

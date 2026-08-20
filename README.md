@@ -108,10 +108,13 @@ open.
 
 ## The battle
 
-Pick who is in the arena with you and how many — up to five opponents, and you
-can add the same one more than once. Every rival is written in the same blocks
-you have, and **you can copy any of their scripts** from the dropdown above the
-canvas to see how it works.
+Pick who is in the arena with you and how many — up to five opponents, and the
+same one can go in more than once. Every rival is written in the blocks you
+have, but you cannot read or copy their scripts. Work out what they are doing by
+watching them.
+
+A bot that runs out of health is removed from the arena, wreck and all. There is
+nothing left to bump into and nothing left to shoot.
 
 | Rival | What it does |
 | --- | --- |
@@ -144,6 +147,22 @@ Nobody drives — the bots run their own programs. Everything is in the left pan
 | **Recall bot** (`C`) | Teleports your bot to a clear spot and restarts its script. For when it wedges itself in a corner, or the script talks itself into one. Not free: the gun comes back hot and everything it had scanned is forgotten. |
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
 | **Workshop** (`B`) | Back to the editor. |
+
+## On a phone
+
+The whole game works on a touch screen.
+
+- **Tap to place.** Tap a block in the palette, then tap a gap in the script to
+  drop it in. Tap a block already in the script to pick it up, then a gap to
+  move it or the palette to bin it. A bar along the bottom says what you are
+  holding and lets you cancel. Dragging still works where the browser supports
+  it.
+- **Three tabs** replace the three columns when the window is under 940px wide:
+  Blocks, Script, Battle.
+- **In the arena** the script panel slides over the battle instead of sitting
+  beside it. The `Script` button top left opens and closes it.
+- **The HUD grows.** Below 620px the readouts are laid out on a coarser grid, so
+  health and heat come out at a readable size rather than eight pixels tall.
 
 ## Checking the blocks actually behave
 
@@ -205,7 +224,7 @@ If the repo is ever renamed, the `base` path must be renamed with it.
 | `src/blocks.ts` | The Clank Script block catalogue |
 | `src/program.ts` | Program data model, starter script, rival scripts |
 | `src/vm.ts` | The interpreter that runs a program each tick |
-| `src/editor.ts` | Block editor: palette, drop gaps, drag and drop |
+| `src/editor.ts` | Block editor: palette, drop gaps, drag and drop, tap to place |
 | `src/bot.ts` | The bot: hull, turret, radar, health, gun heat |
 | `src/match.ts` | Arena, bullets, radar sweeps, collisions, standings |
 | `src/render.ts` | 3D scene, camera framing, compositing |

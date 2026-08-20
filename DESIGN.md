@@ -223,10 +223,35 @@ local storage is the only option, with two consequences worth designing around:
   to show the geometry of the fight rather than to look cinematic. An
   orthographic camera means a bot in the corner is drawn the same as one in the
   middle, which matters when you are reading positions off the screen.
+- **The canvas is sized to fit, not snapped.** It fills the space left by the
+  panels at a fixed 16:9, and the backing store never drops below the render
+  buffer. Snapping to whole multiples of the buffer has a cliff: lose a little
+  width to the inspector and the picture falls from 2x to 1x and sits in a
+  corner.
 - **Every bot's radar beam is drawn on the floor**, in that bot's colour, clipped
   to the arena. Yours is brightest. Being able to see what the *opposition* can
   see is the difference between "it shot me" and "it swept across me, so it
   knew where I was".
+
+---
+
+## 7a. Interface and touch
+
+The palette is flat steel and one amber accent. Category colour lives on the
+blocks, where it carries meaning, and nowhere else. Text is checked against its
+own background rather than assumed to pass: every text node in the workshop and
+the arena was measured for contrast, and the two that came out marginal were
+lifted.
+
+Touch is not an afterthought bolted onto drag and drop, because touch screens do
+not have drag and drop. Every edit has a tap path: tap to pick up, tap to place,
+tap the palette to bin. The same path works with a mouse and is quicker than
+dragging down a long script, so it is not a second-class mode nobody tests.
+
+Below 940px the three columns become three tabs and the arena's script panel
+slides over the battle. Below 620px the HUD switches to a coarser layout grid so
+the numbers come out physically bigger, which is the opposite of what a naive
+scale-to-fit does.
 
 ---
 

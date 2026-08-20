@@ -64,8 +64,17 @@ interface DragPayload {
   from?: { container: string; index: number };
 }
 
+/** The bar that appears while a block is held on a touch screen. */
+const PLACING_BAR_ID = 'placing-bar';
+
 export class ScriptEditor {
   private drag: DragPayload | null = null;
+  /**
+   * Touch screens have no drag and drop at all, so a block can be tapped to
+   * pick up and a gap tapped to drop it. Mouse users get it too, and it is far
+   * easier than dragging across a long script.
+   */
+  private held: DragPayload | null = null;
   /** Set while a match is running so the live block can be highlighted. */
   highlight: string | null = null;
   /**
@@ -252,6 +261,16 @@ export class ScriptEditor {
 
     q<HTMLElement>('[data-new]').forEach((el) => {
       el.addEventListener('mouseenter', () => showHelp(el.dataset.new!));
+      el.addEventListener('click', () => {
+        showHelp(el.dataset.new!);
+        const op = el.dataset.new!;
+        if (this.held?.kind === 'new' && this.held.op === op) {
+          this.hold(null, root);
+          return;
+        }
+        this.hold({ kind: 'new', op }, root);
+        el.classList.add('held');
+      });
       el.addEventListener('dragstart', (ev) => {
         this.drag = { kind: 'new', op: el.dataset.new! };
         ev.dataTransfer?.setData('text/plain', el.dataset.new!);
@@ -265,6 +284,18 @@ export class ScriptEditor {
     });
 
     q<HTMLElement>('.blk[data-node]').forEach((el) => {
+      el.addEventListener('click', (ev) => {
+        // Taps on a value inside the block are edits, not a pick-up.
+        if ((ev.target as HTMLElement).closest('.slot, .kill')) return;
+        ev.stopPropagation();
+        const from = { container: el.dataset.container!, index: Number(el.dataset.idx) };
+        if (this.held?.kind === 'move' && this.held.from?.container === from.container && this.held.from.index === from.index) {
+          this.hold(null, root);
+          return;
+        }
+        this.hold({ kind: 'move', from }, root);
+        el.classList.add('held');
+      });
       el.addEventListener('dragstart', (ev) => {
         ev.stopPropagation();
         this.drag = {
@@ -296,6 +327,16 @@ export class ScriptEditor {
         g.classList.remove('over');
         this.drop(g.dataset.container!, Number(g.dataset.index));
       });
+      g.addEventListener('click', () => {
+        if (!this.held) return;
+        if (this.held.kind === 'new' && BLOCK_BY_OP[this.held.op!]?.hat) return;
+        this.drag = this.held;
+        const held = this.held;
+        this.hold(null, root);
+        this.drag = held;
+        this.drop(g.dataset.container!, Number(g.dataset.index));
+        this.drag = null;
+      });
     });
 
     const newStack = root.querySelector<HTMLElement>('[data-newstack]');
@@ -307,6 +348,14 @@ export class ScriptEditor {
         }
       });
       newStack.addEventListener('dragleave', () => newStack.classList.remove('over'));
+      newStack.addEventListener('click', () => {
+        if (this.held?.kind !== 'new') return;
+        const def = BLOCK_BY_OP[this.held.op!];
+        if (!def?.hat) return;
+        this.program.stacks.push({ id: uid('s'), hat: makeNode(this.held.op!), body: [] });
+        this.hold(null, root);
+        this.onChange();
+      });
       newStack.addEventListener('drop', (ev) => {
         newStack.classList.remove('over');
         if (this.drag?.kind !== 'new') return;
@@ -328,6 +377,14 @@ export class ScriptEditor {
         }
       });
       bin.addEventListener('dragleave', () => bin.classList.remove('binning'));
+      bin.addEventListener('click', (ev) => {
+        if (this.held?.kind !== 'move' || !this.held.from) return;
+        if ((ev.target as HTMLElement).closest('[data-new]')) return;
+        const list = containerList(this.program, this.held.from.container);
+        list.splice(this.held.from.index, 1);
+        this.hold(null, root);
+        this.onChange();
+      });
       bin.addEventListener('drop', (ev) => {
         bin.classList.remove('binning');
         if (this.drag?.kind !== 'move' || !this.drag.from) return;
@@ -389,6 +446,32 @@ export class ScriptEditor {
     const idx = Number(el.dataset.idx);
     if (container === undefined) return null;
     return containerList(this.program, container)[idx] ?? null;
+  }
+
+  /** Pick a block up, or put down the one already held. */
+  private hold(payload: DragPayload | null, root: HTMLElement) {
+    this.held = payload;
+    root.classList.toggle('placing', !!payload);
+    for (const el of root.querySelectorAll('.blk.held')) el.classList.remove('held');
+    this.paintPlacingBar(root);
+  }
+
+  private paintPlacingBar(root: HTMLElement) {
+    let bar = document.getElementById(PLACING_BAR_ID);
+    if (!this.held) {
+      bar?.remove();
+      return;
+    }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = PLACING_BAR_ID;
+      bar.className = 'placing-bar';
+      document.body.appendChild(bar);
+    }
+    const what = this.held.kind === 'new' ? BLOCK_BY_OP[this.held.op!]?.text ?? 'block' : 'this block';
+    bar.innerHTML = `<span>Tap a gap to place ${esc(what.replace(/\{\w+\}/g, '...'))}</span>
+      <button type="button" data-cancel="1">Cancel</button>`;
+    bar.querySelector<HTMLButtonElement>('[data-cancel]')!.onclick = () => this.hold(null, root);
   }
 
   private drop(container: string, index: number) {

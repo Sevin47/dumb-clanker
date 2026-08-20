@@ -193,15 +193,20 @@ export class Match {
     add(WALL, ARENA_H / 2 + WALL, ARENA_W + WALL, ARENA_H / 2);
   }
 
-  /** Stamp a finishing position on anything that has just died. */
+  /** Stamp a finishing position on anything that has just died, then clear it away. */
   private noteDeaths() {
     for (const b of this.bots) {
-      if (!b.alive && b.deathOrder === 0) {
-        b.deathOrder = ++this.deaths;
-        const p = b.position;
-        this.sparks(p.x, p.y, 46, P.hot, 5);
-        this.slowmo = 0.9;
-      }
+      if (b.alive || b.deathOrder !== 0) continue;
+      b.deathOrder = ++this.deaths;
+      const p = b.position;
+      this.sparks(p.x, p.y, 46, P.hot, 5);
+      this.slowmo = 0.9;
+
+      // Take the wreck out of the world. Leaving it in means survivors bounce
+      // off a corpse and take ramming damage from a bot that is already beaten.
+      // The body object stays so its last position can still be read; it just
+      // stops taking part in the simulation.
+      this.world.queueUpdate(() => b.body.setActive(false));
     }
   }
 

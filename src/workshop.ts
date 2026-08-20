@@ -1,6 +1,7 @@
 import { ScriptEditor } from './editor';
-import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram, type Program } from './program';
+import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram, uid, type Program } from './program';
 import type { Entrant } from './match';
+import { exportScript, importScript, loadFile, saveFile, type SaveFile } from './storage';
 
 /**
  * The workshop. There is no bot to build any more — everyone fights the same
@@ -13,16 +14,45 @@ const MAX_OPPONENTS = 5;
 export class Workshop {
   program: Program;
   /** Rival ids in the field, in order. The same bot may appear more than once. */
-  field: string[] = ['lamppost', 'hunter'];
+  field: string[];
+  name: string;
   private editor: ScriptEditor;
+  private file: SaveFile;
+  private storageBroken = false;
+  private flash = '';
 
   constructor(
     private root: HTMLElement,
-    initialProgram: Program,
     private onFight: (entrants: Entrant[]) => void,
   ) {
-    this.program = initialProgram;
-    this.editor = new ScriptEditor(this.program, () => this.render());
+    this.file = loadFile();
+    this.program = this.file.current;
+    this.field = this.file.field;
+    this.name = this.file.currentName;
+    this.editor = new ScriptEditor(this.program, () => {
+      this.persist();
+      this.render();
+    });
+  }
+
+  /**
+   * Autosave. Every edit writes straight through, so a refresh, a crash or a
+   * closed tab never costs work — which is the whole point of it.
+   */
+  private persist() {
+    this.file.current = this.program;
+    this.file.currentName = this.name;
+    this.file.field = this.field;
+    this.storageBroken = !saveFile(this.file);
+  }
+
+  private say(msg: string) {
+    this.flash = msg;
+    window.setTimeout(() => {
+      if (this.flash !== msg) return;
+      this.flash = '';
+      if (this.root.classList.contains('active')) this.render();
+    }, 2600);
   }
 
   show() {
@@ -35,9 +65,64 @@ export class Workshop {
     this.root.innerHTML = '';
   }
 
-  setProgram(p: Program) {
+  setProgram(p: Program, name?: string) {
     this.program = p;
+    if (name !== undefined) this.name = name;
     this.editor.setProgram(p);
+    this.persist();
+  }
+
+  private saveToLibrary() {
+    const name = this.name.trim() || 'Untitled';
+    const existing = this.file.library.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    const entry = {
+      id: existing?.id ?? uid('save'),
+      name,
+      savedAt: Date.now(),
+      program: cloneProgram(this.program),
+    };
+    if (existing) Object.assign(existing, entry);
+    else this.file.library.unshift(entry);
+    this.persist();
+    this.say(existing ? `Updated ${name}` : `Saved ${name}`);
+    this.render();
+  }
+
+  private libraryCard(): string {
+    const rows = this.file.library.length
+      ? this.file.library
+          .map(
+            (x) => `<li>
+              <button class="lib-load" data-load="${x.id}" title="Load this script into the editor">
+                <b>${escapeHtml(x.name)}</b><i>${countBlocks(x.program)} blocks &middot; ${when(x.savedAt)}</i>
+              </button>
+              <button class="drop" data-del="${x.id}" title="Delete this script">&times;</button>
+            </li>`,
+          )
+          .join('')
+      : '<li class="empty">Nothing saved yet</li>';
+
+    return `
+      <section class="card">
+        <h2>Scripts</h2>
+        <label class="namerow">
+          <span>Name</span>
+          <input id="scriptname" type="text" value="${escapeHtml(this.name)}" maxlength="40" />
+        </label>
+        <div class="saverow">
+          <button class="ghost small" id="savescript">Save</button>
+          <button class="ghost small" id="exportscript" title="Download this script as a file">Export</button>
+          <button class="ghost small" id="importbtn" title="Load a script from a file">Import</button>
+          <input type="file" id="importfile" accept=".json,application/json" hidden />
+        </div>
+        <ul class="library">${rows}</ul>
+        ${this.flash ? `<p class="flash">${escapeHtml(this.flash)}</p>` : ''}
+        ${
+          this.storageBroken
+            ? '<p class="warn error">This browser will not let the game save. Use Export to keep your work.</p>'
+            : '<p class="autosave">Autosaves as you edit.</p>'
+        }
+      </section>`;
   }
 
   /** Build the entrant list: you first, then the field. */
@@ -140,6 +225,7 @@ export class Workshop {
               <p class="explain">Then decide for yourself when to shoot &mdash;
                 <b>if how far my turret is off target is less than 5, fire</b>.</p>
             </section>
+            ${this.libraryCard()}
             ${this.battleCard()}
             <button id="fight" ${this.field.length === 0 ? 'disabled' : ''}>
               ${this.field.length === 0 ? 'Add an opponent' : 'Fight'}</button>
@@ -159,12 +245,14 @@ export class Workshop {
       b.onclick = () => {
         if (this.field.length >= MAX_OPPONENTS) return;
         this.field.push(b.dataset.add!);
+        this.persist();
         this.render();
       };
     });
     q<HTMLButtonElement>('[data-remove]').forEach((b) => {
       b.onclick = () => {
         this.field.splice(Number(b.dataset.remove), 1);
+        this.persist();
         this.render();
       };
     });
@@ -173,6 +261,47 @@ export class Workshop {
       this.setProgram(starterProgram());
       this.render();
     };
+
+    const nameInput = this.root.querySelector<HTMLInputElement>('#scriptname')!;
+    nameInput.onchange = () => {
+      this.name = nameInput.value;
+      this.persist();
+    };
+    this.root.querySelector<HTMLButtonElement>('#savescript')!.onclick = () => this.saveToLibrary();
+    this.root.querySelector<HTMLButtonElement>('#exportscript')!.onclick = () =>
+      exportScript(this.name.trim() || 'clank-script', this.program);
+
+    const fileInput = this.root.querySelector<HTMLInputElement>('#importfile')!;
+    this.root.querySelector<HTMLButtonElement>('#importbtn')!.onclick = () => fileInput.click();
+    fileInput.onchange = async () => {
+      const f = fileInput.files?.[0];
+      if (!f) return;
+      const loaded = await importScript(f);
+      if (!loaded) {
+        this.say('That file is not a Clank Script.');
+        this.render();
+        return;
+      }
+      this.setProgram(loaded.program, loaded.name);
+      this.say(`Loaded ${loaded.name}`);
+      this.render();
+    };
+
+    q<HTMLButtonElement>('[data-load]').forEach((b) => {
+      b.onclick = () => {
+        const entry = this.file.library.find((x) => x.id === b.dataset.load);
+        if (!entry) return;
+        this.setProgram(cloneProgram(entry.program), entry.name);
+        this.render();
+      };
+    });
+    q<HTMLButtonElement>('[data-del]').forEach((b) => {
+      b.onclick = () => {
+        this.file.library = this.file.library.filter((x) => x.id !== b.dataset.del);
+        this.persist();
+        this.render();
+      };
+    });
 
     const copy = this.root.querySelector<HTMLSelectElement>('#copyrival')!;
     copy.onchange = () => {
@@ -186,4 +315,18 @@ export class Workshop {
       this.onFight(this.entrants());
     };
   }
+}
+
+const escapeHtml = (v: string) =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Rough, friendly timestamp. Nobody needs the seconds. */
+function when(t: number): string {
+  if (!t) return 'just now';
+  const mins = Math.floor((Date.now() - t) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }

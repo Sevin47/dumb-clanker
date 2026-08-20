@@ -17,7 +17,7 @@ initInput();
 let match: Match | null = null;
 let lastEntrants: Entrant[] | null = null;
 
-const workshop = new Workshop(overlay, starterProgram(), (entrants) => {
+const workshop = new Workshop(overlay, (entrants) => {
   lastEntrants = entrants;
   workshop.hide();
   canvas.classList.add('active');

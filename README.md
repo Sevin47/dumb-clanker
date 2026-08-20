@@ -82,6 +82,21 @@ when the match starts        when my radar spots a bot     when I hit a wall
     turn hull right 40°
 ```
 
+## Saving your work
+
+Scripts **autosave as you edit** — a refresh, a crash or a closed tab never
+costs work. The Scripts card in the workshop also keeps a named library: give a
+script a name, hit **Save**, and load it back any time.
+
+Saves live in your browser's local storage, which means they are per-browser and
+a cleared cache takes them with it. **Export** writes a script to a
+`.clank.json` file you can keep or send to somebody; **Import** reads one back.
+
+Old saves are sanitised on load rather than trusted. The block vocabulary has
+changed several times, so a script written against an older version loses the
+blocks that no longer exist and keeps everything else, instead of failing to
+open.
+
 ## The battle
 
 Pick who is in the arena with you and how many — up to five opponents, and you

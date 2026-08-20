@@ -180,7 +180,22 @@ So the arena carries a debug console down its left side:
 The script markup is built once per battle and only classes and a few numbers
 change per frame — re-rendering a script at 60fps would cost more than the game.
 
-## 6. Presentation
+## 6. Persistence
+
+Scripts autosave to local storage on every edit, and the workshop keeps a named
+library beside the editor. There is no server — the game is a static page — so
+local storage is the only option, with two consequences worth designing around:
+
+- **It is per-browser and easily wiped.** Export writes a script to a file and
+  Import reads one back, so work can outlive a cleared cache and be shared.
+- **Saved data outlives the language.** Blocks have been renamed and removed
+  outright more than once in this project's life. Every load is therefore
+  sanitised, not trusted: unknown blocks are dropped, hats that are no longer
+  hats are dropped, missing arguments are filled from defaults, and ids are
+  regenerated. A save from an older version opens with the parts that still make
+  sense rather than refusing to open at all.
+
+## 7. Presentation
 
 - **Pixel art**: the 3D scene renders to a 480x270 buffer and is upscaled with
   no smoothing.
@@ -203,7 +218,7 @@ change per frame — re-rendering a script at 60fps would cost more than the gam
 
 ---
 
-## 7. Technology
+## 8. Technology
 
 **Web / TypeScript.** `planck.js` for 2D physics, `three.js` for presentation,
 and a small hand-written interpreter for Clank Script. Bullets are integrated by
@@ -212,7 +227,7 @@ sub-stepping stops fast rounds tunnelling through a bot.
 
 ---
 
-## 8. Notes from implementation
+## 9. Notes from implementation
 
 - **A stationary bot must not be competitive, and nearly was.** Lamppost — a bot
   whose entire program is "sweep and shoot" — tied for first until the gun

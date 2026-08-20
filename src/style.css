@@ -779,3 +779,15 @@ select.ghost.small {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 .autosave { margin: 0; font-size: var(--fs-micro); color: var(--muted); }
+
+/* Explains the hovered block: what it does, and when it finishes. */
+.blockhelp {
+  flex: 0 0 auto;
+  padding: 11px 14px 13px;
+  border-top: 1px solid var(--line);
+  background: rgba(12, 10, 17, .6);
+  min-height: 116px;
+}
+.blockhelp h4 { margin: 0 0 4px; font-size: var(--fs-body); font-weight: 700; color: var(--text); }
+.blockhelp p { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--dim); }
+.blockhelp.empty p { color: var(--muted); font-style: italic; }

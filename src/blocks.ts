@@ -1,17 +1,32 @@
 /**
  * Clank Script — the block language.
  *
- * Shaped like Scratch: stacks of blocks headed by a "when..." hat. One
- * deliberate simplification: conditions are not free-form nested expressions
- * but a fixed sensor / comparison / value triple. That covers nearly everything
- * a fighting robot needs to decide, and it removes the single fiddliest part of
- * a block editor for someone who does not program.
+ * Shaped like Scratch: stacks of blocks headed by a "when..." hat.
  *
- * The bot has three things that turn independently — the hull, the turret and
- * the radar — so most of the vocabulary is about pointing one of them.
+ * Two rules keep it honest:
+ *
+ * 1. **No block both senses and acts.** A block reports, or moves something, or
+ *    fires. Deciding is the player's job.
+ * 2. **Amounts are typed.** Every number slot has a unit, and only sensors
+ *    measuring that unit can drive it. "Drive forward for [bots still alive]
+ *    seconds" is not a sentence, so the editor never offers it.
  */
 
 export type Category = 'event' | 'motion' | 'turret' | 'radar' | 'control';
+
+/** What a number means. Slots only accept sensors of a matching unit. */
+export type Unit = 'time' | 'angle' | 'distance' | 'percent' | 'speed' | 'heat' | 'count' | 'power';
+
+export const UNIT_LABEL: Record<Unit, string> = {
+  time: 'seconds',
+  angle: 'degrees',
+  distance: 'metres',
+  percent: '%',
+  speed: 'm/s',
+  heat: 'heat',
+  count: 'bots',
+  power: 'power',
+};
 
 export type SlotDef =
   | {
@@ -19,7 +34,9 @@ export type SlotDef =
       def: number;
       min: number;
       max: number;
-      unit?: string;
+      /** Which sensors may drive this slot. 'match' means "same unit as the sensor slot". */
+      unit: Unit | 'match';
+      suffix?: string;
       /** Angles may be negative, which is what lets a sensor steer a turn. */
       signed?: boolean;
     }
@@ -35,40 +52,91 @@ export interface BlockDef {
   hat?: boolean;
   bodies?: 1 | 2;
   priority?: number;
+  /** One sentence on what it does, then one on when it finishes. */
+  help: string;
+}
+
+export interface SensorDef {
+  id: string;
+  label: string;
+  unit: Unit;
   help: string;
 }
 
 /**
- * Everything a bot can know. "Target" always means the bot you last scanned.
- *
- * Any number slot in any block can be driven by one of these instead of a fixed
- * value, which is what makes aiming something you build rather than something
- * you are given. The three "turn needed" readings are **signed** — negative
- * means left — so `turn turret right [turret turn needed]` swings the gun the
- * correct way on its own.
+ * Everything a bot can know. "The target" always means the last bot your radar
+ * swept across — not necessarily where it is now.
  */
-export const SENSORS: Array<[string, string, string]> = [
-  ['target_distance', 'distance to target', 'How far away the bot you last scanned is, in metres. Reads 999 if you have never scanned anyone.'],
-  ['turret_turn', 'turret turn needed (- is left)', 'Degrees to swing the turret onto the target. Negative means left. Feed this into a turn block to aim.'],
-  ['radar_turn', 'radar turn needed (- is left)', 'Degrees to swing the radar onto the target. Negative means left. Feed this into a turn block to track them.'],
-  ['hull_turn', 'hull turn needed (- is left)', 'Degrees to turn the hull to face the target. Negative means left.'],
-  ['gun_error', 'how far my turret is off target', 'Degrees the turret is off, ignoring direction. Test this before firing.'],
-  ['radar_error', 'how far my radar is off target', 'Degrees the radar is off, ignoring direction.'],
-  ['target_bearing', 'angle from my nose to target', 'How far the hull is off facing them, ignoring direction.'],
-  ['target_age', 'seconds since I scanned them', 'How stale your information is. 0 means you can see them right now.'],
-  ['target_health', 'target health %', 'How hurt the bot you last scanned was when you saw them.'],
-  ['gun_heat', 'my gun heat', 'You cannot fire until this reaches 0.'],
-  ['my_health', 'my health %', 'How much of you is left, 0 to 100.'],
-  ['my_speed', 'my speed', 'How fast you are travelling, in metres per second.'],
-  ['wall_distance', 'distance to the wall', 'How far the nearest arena wall is, in metres.'],
-  ['bots_left', 'bots still alive', 'Including you.'],
-  ['time_left', 'seconds left', 'Seconds remaining in the match.'],
+export const SENSORS: SensorDef[] = [
+  {
+    id: 'target_distance',
+    label: 'distance to the target',
+    unit: 'distance',
+    help: 'Metres to the last bot you scanned. Reads 999 until you have scanned somebody.',
+  },
+  {
+    id: 'turret_turn',
+    label: 'turret: how far to turn (− left)',
+    unit: 'angle',
+    help: 'Degrees the turret must swing to point at the target. Negative means turn left. Put this in a turn-turret block and the gun aims itself.',
+  },
+  {
+    id: 'radar_turn',
+    label: 'radar: how far to turn (− left)',
+    unit: 'angle',
+    help: 'Degrees the radar must swing to point at the target. Negative means turn left. Put this in a turn-radar block to hold the beam on somebody.',
+  },
+  {
+    id: 'hull_turn',
+    label: 'hull: how far to turn (− left)',
+    unit: 'angle',
+    help: 'Degrees the hull must turn to face the target. Negative means turn left.',
+  },
+  {
+    id: 'gun_error',
+    label: 'turret: how far off target',
+    unit: 'angle',
+    help: 'The same as "turret: how far to turn" but never negative. Use it to test whether the gun is lined up before firing.',
+  },
+  {
+    id: 'radar_error',
+    label: 'radar: how far off target',
+    unit: 'angle',
+    help: 'How far the radar is off the target, ignoring which side.',
+  },
+  {
+    id: 'target_bearing',
+    label: 'hull: how far off target',
+    unit: 'angle',
+    help: 'How far the hull is off facing the target, ignoring which side.',
+  },
+  {
+    id: 'target_age',
+    label: 'seconds since I scanned them',
+    unit: 'time',
+    help: 'How stale your information is. 0 means the beam is on them right now. The older this gets, the more your aim is guessing.',
+  },
+  { id: 'target_health', label: 'the target’s health %', unit: 'percent', help: 'How hurt they were when you last saw them, 0 to 100.' },
+  {
+    id: 'gun_heat',
+    label: 'my gun heat',
+    unit: 'heat',
+    help: 'Firing does nothing until this reaches 0. A power-3 shot leaves about 2.1 heat, and heat falls by 0.7 per second.',
+  },
+  { id: 'my_health', label: 'my health %', unit: 'percent', help: 'How much of you is left, 0 to 100.' },
+  { id: 'my_speed', label: 'my speed', unit: 'speed', help: 'How fast you are actually moving, in metres per second. Top speed is 10.' },
+  { id: 'wall_distance', label: 'distance to the nearest wall', unit: 'distance', help: 'Metres to the closest edge of the arena.' },
+  { id: 'bots_left', label: 'bots still alive', unit: 'count', help: 'How many bots are still fighting, including you.' },
+  { id: 'time_left', label: 'seconds left in the battle', unit: 'time', help: 'Seconds remaining before the battle is decided on health.' },
 ];
+
+export const SENSOR_BY_ID: Record<string, SensorDef> = Object.fromEntries(SENSORS.map((s) => [s.id, s]));
+export const sensorsFor = (unit: Unit) => SENSORS.filter((s) => s.unit === unit);
 
 export const COMPARES: Array<[string, string]> = [
   ['lt', 'is less than'],
   ['gt', 'is more than'],
-  ['eq', 'is'],
+  ['eq', 'is about'],
 ];
 
 const DIR: Array<[string, string]> = [
@@ -76,23 +144,34 @@ const DIR: Array<[string, string]> = [
   ['right', 'right'],
 ];
 
+const secs = (def: number): SlotDef => ({ kind: 'number', def, min: 0.05, max: 10, unit: 'time', suffix: 'seconds' });
+const degrees = (def: number): SlotDef => ({
+  kind: 'number',
+  def,
+  min: -360,
+  max: 360,
+  unit: 'angle',
+  suffix: 'degrees',
+  signed: true,
+});
+
 export const BLOCKS: BlockDef[] = [
   // ------------------------------------------------------------- events
   {
     op: 'when_start',
     cat: 'event',
-    text: 'when the match starts',
+    text: 'when the battle starts',
     hat: true,
     priority: 0,
-    help: 'Your main plan. Put a "forever" block in here so it keeps going all match.',
+    help: 'Runs once, at the start. This is your standing plan — put a "forever" block inside it or the bot will finish and then do nothing.',
   },
   {
     op: 'when_scanned',
     cat: 'event',
-    text: 'when my radar spots a bot',
+    text: 'when my radar passes over a bot',
     hat: true,
     priority: 3,
-    help: 'Runs every time the radar beam sweeps across someone. This is where most bots do their shooting.',
+    help: 'Runs each time your radar beam crosses another bot, which also sets "the target" to them. It interrupts your standing plan, runs to the end, then the plan carries on where it left off.',
   },
   {
     op: 'when_shot',
@@ -100,15 +179,15 @@ export const BLOCKS: BlockDef[] = [
     text: 'when a bullet hits me',
     hat: true,
     priority: 4,
-    help: 'Somebody is shooting at you. A good place to start moving unpredictably.',
+    help: 'Runs when you take a hit. Interrupts whatever you were doing.',
   },
   {
     op: 'when_wall',
     cat: 'event',
-    text: 'when I hit a wall',
+    text: 'when I run into a wall',
     hat: true,
     priority: 4,
-    help: 'Runs when you drive into the edge of the arena, so you can back out of it.',
+    help: 'Runs while you are pressed against the edge of the arena. Back off and turn, or you will sit there.',
   },
   {
     op: 'when_bumped',
@@ -116,121 +195,118 @@ export const BLOCKS: BlockDef[] = [
     text: 'when I bump into another bot',
     hat: true,
     priority: 4,
-    help: 'You have collided with someone. They are very close and probably shootable.',
+    help: 'Runs when you collide with somebody. Both of you take a little damage, and they are point-blank.',
   },
   {
     op: 'when_health_below',
     cat: 'event',
-    text: 'when my health drops below {n} %',
-    slots: { n: { kind: 'number', def: 40, min: 5, max: 95, unit: '%' } },
+    text: 'when my health drops below {n}',
+    slots: { n: { kind: 'number', def: 40, min: 5, max: 95, unit: 'percent', suffix: '%' } },
     hat: true,
     priority: 5,
-    help: 'Runs once when you get badly hurt. Interrupts everything else.',
+    help: 'Runs once when you cross that level going down. It will not run again unless you heal, which you cannot, so treat it as a one-off panic plan.',
   },
 
   // ------------------------------------------------------------- motion
   {
     op: 'drive',
     cat: 'motion',
-    text: 'drive {dir} for {n} s',
+    text: 'drive {dir} for {n}',
     slots: {
       dir: { kind: 'choice', def: 'forward', options: [['forward', 'forward'], ['backward', 'backward']] },
-      n: { kind: 'number', def: 1, min: 0.1, max: 10, unit: 's' },
+      n: secs(1),
     },
-    help: 'Straight line, whichever way the hull happens to be pointing.',
+    help: 'Drives in a straight line, whichever way the hull already points. Finishes when the time is up. Reverse tops out at about two thirds of forward speed.',
   },
   {
     op: 'turn_body',
     cat: 'motion',
-    text: 'turn hull {dir} {n} degrees',
-    slots: {
-      dir: { kind: 'choice', def: 'left', options: DIR },
-      n: { kind: 'number', def: 90, min: -360, max: 360, unit: '°', signed: true },
-    },
-    help: 'Spin the hull on the spot. The turret keeps pointing where it was. Turning right by a negative amount turns left, which is how a sensor can steer it.',
+    text: 'turn hull {dir} by {n}',
+    slots: { dir: { kind: 'choice', def: 'left', options: DIR }, n: degrees(90) },
+    help: 'Spins the hull on the spot; the turret and radar keep pointing where they were. Finishes once it has turned that far, or after 5 seconds if something is in the way. A negative amount turns the opposite way.',
   },
   {
     op: 'face_target',
     cat: 'motion',
     text: 'point hull at the target',
-    help: 'Turn the hull until its nose is on the bot you last scanned.',
+    help: 'Turns the hull until its nose is within 9 degrees of the target. Finishes then, or after 2.5 seconds. Does nothing useful if you have never scanned anyone.',
   },
   {
     op: 'charge',
     cat: 'motion',
-    text: 'drive at the target for {n} s',
-    slots: { n: { kind: 'number', def: 2, min: 0.2, max: 10, unit: 's' } },
-    help: 'Point the hull at them and drive. Ramming hurts them, and you.',
+    text: 'drive at the target for {n}',
+    slots: { n: secs(2) },
+    help: 'Steers at the target and drives flat out, correcting every tick. Finishes when the time is up. Colliding hurts you both.',
   },
   {
     op: 'retreat',
     cat: 'motion',
-    text: 'back away from the target for {n} s',
-    slots: { n: { kind: 'number', def: 1.5, min: 0.2, max: 10, unit: 's' } },
-    help: 'Reverse while keeping your nose pointed at them.',
+    text: 'back away from the target for {n}',
+    slots: { n: secs(1.5) },
+    help: 'Reverses while keeping your nose pointed at them, so your gun stays roughly on. Finishes when the time is up.',
   },
   {
     op: 'strafe',
     cat: 'motion',
-    text: 'circle {dir} around the target for {n} s',
-    slots: { dir: { kind: 'choice', def: 'left', options: DIR }, n: { kind: 'number', def: 2, min: 0.2, max: 10, unit: 's' } },
-    help: 'Drive at right angles to them. Much harder to hit than driving straight.',
+    text: 'circle {dir} around the target for {n}',
+    slots: { dir: { kind: 'choice', def: 'left', options: DIR }, n: secs(2) },
+    help: 'Drives at right angles to the target, correcting every tick. The hardest movement to shoot, but it also means your own gun is not pointing at them.',
   },
   {
     op: 'stop',
     cat: 'motion',
-    text: 'sit still for {n} s',
-    slots: { n: { kind: 'number', def: 0.5, min: 0.1, max: 10, unit: 's' } },
-    help: 'Let go of everything and coast to a halt. A stationary bot is an easy target.',
+    text: 'stop moving for {n}',
+    slots: { n: secs(0.5) },
+    help: 'Releases the throttle and coasts. It does not brake, so you keep sliding for a moment. A stationary bot is easy to hit.',
   },
 
   // ------------------------------------------------------------- turret
   {
     op: 'turn_turret',
     cat: 'turret',
-    text: 'turn turret {dir} {n} degrees',
-    slots: {
-      dir: { kind: 'choice', def: 'right', options: DIR },
-      n: { kind: 'number', def: 45, min: -360, max: 360, unit: '°', signed: true },
-    },
-    help: 'Swing the turret, independently of the hull. Set the amount to "turret turn needed" and this becomes your aiming block — it corrects once, so run it every lap.',
+    text: 'turn turret {dir} by {n}',
+    slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(45) },
+    help: 'Swings the turret independently of the hull, about 149 degrees a second. Finishes when it arrives. Set the amount to "turret: how far to turn" and it aims at the target — but only for where they were at that instant, so run it every lap.',
   },
   {
     op: 'fire',
     cat: 'turret',
     text: 'fire with power {n}',
-    slots: { n: { kind: 'number', def: 1.5, min: 0.5, max: 3, unit: '' } },
-    help: 'Heavy shots hurt more but fly slower and leave the gun hot for longer. Does nothing while the gun is hot, so check "my gun heat" first.',
+    slots: { n: { kind: 'number', def: 1.5, min: 0.5, max: 3, unit: 'power' } },
+    help: 'Fires instantly and moves straight to the next block. Does nothing at all if the gun is still hot. Power 0.5 does 2 damage at 20 m/s; power 3 does 16 at 10 m/s and locks the gun for about 3 seconds.',
   },
 
   // ------------------------------------------------------------- radar
   {
     op: 'sweep',
     cat: 'radar',
-    text: 'sweep radar {dir}',
+    text: 'start sweeping radar {dir}',
     slots: { dir: { kind: 'choice', def: 'right', options: DIR } },
-    help: 'Keep the radar turning that way until something else tells it to stop. This is how you find people.',
+    help: 'Sets the radar spinning and moves straight on — it does not wait. The beam keeps turning until another radar block changes it. This is how you find people.',
   },
   {
     op: 'turn_radar',
     cat: 'radar',
-    text: 'turn radar {dir} {n} degrees',
-    slots: {
-      dir: { kind: 'choice', def: 'right', options: DIR },
-      n: { kind: 'number', def: 90, min: -360, max: 360, unit: '°', signed: true },
-    },
-    help: 'Swing the radar and stop. Set the amount to "radar turn needed" to hold the beam on someone — but it only corrects once, so you must keep doing it.',
+    text: 'turn radar {dir} by {n}',
+    slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(90) },
+    help: 'Stops any sweep and swings the radar by that much, about 344 degrees a second. Finishes when it arrives. Set the amount to "radar: how far to turn" to hold the beam on the target — once per run, so repeat it.',
   },
 
   // ------------------------------------------------------------- control
-  { op: 'forever', cat: 'control', text: 'forever', bodies: 1, help: 'Repeats what is inside it for the whole match.' },
+  {
+    op: 'forever',
+    cat: 'control',
+    text: 'forever',
+    bodies: 1,
+    help: 'Repeats what is inside for the whole battle. One lap per tick at most, so an empty forever cannot lock the game up.',
+  },
   {
     op: 'repeat',
     cat: 'control',
     text: 'repeat {n} times',
-    slots: { n: { kind: 'number', def: 4, min: 1, max: 50 } },
+    slots: { n: { kind: 'number', def: 4, min: 1, max: 50, unit: 'count' } },
     bodies: 1,
-    help: 'Runs what is inside it a set number of times.',
+    help: 'Runs what is inside a set number of times, then carries on to the next block.',
   },
   {
     op: 'if',
@@ -239,10 +315,10 @@ export const BLOCKS: BlockDef[] = [
     slots: {
       sensor: { kind: 'sensor', def: 'target_distance' },
       cmp: { kind: 'compare', def: 'lt' },
-      n: { kind: 'number', def: 10, min: 0, max: 999 },
+      n: { kind: 'number', def: 10, min: -999, max: 999, unit: 'match' },
     },
     bodies: 1,
-    help: 'Only runs what is inside when the test is true right now.',
+    help: 'Checks once, right now, and runs the inside only if it is true. It does not keep watching. The value on the right must measure the same thing as the sensor on the left.',
   },
   {
     op: 'if_else',
@@ -251,17 +327,17 @@ export const BLOCKS: BlockDef[] = [
     slots: {
       sensor: { kind: 'sensor', def: 'target_distance' },
       cmp: { kind: 'compare', def: 'lt' },
-      n: { kind: 'number', def: 10, min: 0, max: 999 },
+      n: { kind: 'number', def: 10, min: -999, max: 999, unit: 'match' },
     },
     bodies: 2,
-    help: 'Runs the first part when the test is true, the second part when it is not.',
+    help: 'Runs the first part if the test is true right now, otherwise the second part.',
   },
   {
     op: 'wait',
     cat: 'control',
-    text: 'wait {n} s',
-    slots: { n: { kind: 'number', def: 0.5, min: 0.05, max: 10, unit: 's' } },
-    help: 'Do nothing for a moment. Whatever you were already doing keeps happening.',
+    text: 'wait for {n}',
+    slots: { n: secs(0.5) },
+    help: 'Pauses the script. Whatever the bot was already doing — driving, sweeping — carries on while it waits.',
   },
   {
     op: 'wait_until',
@@ -269,13 +345,35 @@ export const BLOCKS: BlockDef[] = [
     text: 'wait until {sensor} {cmp} {n}',
     slots: {
       sensor: { kind: 'sensor', def: 'gun_heat' },
-      cmp: { kind: 'compare', def: 'eq' },
-      n: { kind: 'number', def: 0, min: 0, max: 999 },
+      cmp: { kind: 'compare', def: 'lt' },
+      n: { kind: 'number', def: 1, min: -999, max: 999, unit: 'match' },
     },
-    help: 'Pause here until the test comes true. Gives up after 8 seconds so you cannot get stuck.',
+    help: 'Holds here until the test comes true, then carries on. Gives up after 8 seconds so a test that never comes true cannot freeze your bot.',
   },
 ];
 
 export const BLOCK_BY_OP: Record<string, BlockDef> = Object.fromEntries(BLOCKS.map((b) => [b.op, b]));
-export const sensorLabel = (id: string) => SENSORS.find((s) => s[0] === id)?.[1] ?? id;
+export const sensorLabel = (id: string) => SENSOR_BY_ID[id]?.label ?? id;
 export const compareLabel = (id: string) => COMPARES.find((c) => c[0] === id)?.[1] ?? id;
+
+/** Which sensors may drive this slot, given the block it sits in. */
+export function allowedSensors(def: BlockDef, key: string, args: Record<string, string | number>): SensorDef[] {
+  const slot = def.slots?.[key];
+  if (!slot || slot.kind !== 'number') return [];
+  if (slot.unit !== 'match') return sensorsFor(slot.unit);
+  // A comparison's right-hand side has to measure whatever the left side does.
+  const chosen = SENSOR_BY_ID[String(args.sensor ?? '')];
+  return chosen ? sensorsFor(chosen.unit) : [];
+}
+
+/** The unit shown after a slot, e.g. "seconds" or "%". */
+export function slotSuffix(def: BlockDef, key: string, args: Record<string, string | number>): string {
+  const slot = def.slots?.[key];
+  if (!slot || slot.kind !== 'number') return '';
+  if (slot.suffix) return slot.suffix;
+  if (slot.unit === 'match') {
+    const chosen = SENSOR_BY_ID[String(args.sensor ?? '')];
+    return chosen ? UNIT_LABEL[chosen.unit] : '';
+  }
+  return UNIT_LABEL[slot.unit] ?? '';
+}

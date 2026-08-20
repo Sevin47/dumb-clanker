@@ -87,6 +87,18 @@ names, so `sweep radar right` keeps sweeping while the hull drives and the gun
 aims somewhere else entirely. This is what makes independent rotation usable
 rather than merely present.
 
+### Amounts are typed
+Every number slot carries a unit — time, angle, distance, percent, speed, heat,
+count, power — and only sensors measuring that unit may drive it. Gun power has
+no matching sensor at all, so that slot is a plain number and the dropdown does
+not appear. A comparison's right-hand side takes its unit from whichever sensor
+is on the left, so `if [distance to the target] [is less than] [distance to the
+nearest wall]` is offered and `[…] [is less than] [bots still alive]` is not.
+
+Before this, every sensor was offered in every slot. Most combinations were
+nonsense, and a language that offers nonsense teaches that the author was not
+paying attention.
+
 ### One simplification worth stating
 Conditions are **not** free-form nested expressions but a fixed
 *sensor / comparison / value* triple: `if [distance to target] [is less than] [10]`.
@@ -227,7 +239,28 @@ sub-stepping stops fast rounds tunnelling through a bot.
 
 ---
 
-## 9. Notes from implementation
+## 9. Checking the language against itself
+
+`src/checks.ts` runs each block in a controlled battle and compares what it
+measures against what the block's help text promises. It exists because the
+person writing scripts did not write the interpreter, and "it looked fine in a
+battle" is not evidence that a block does what it says.
+
+It paid for itself on the first run, catching two places where the wording and
+the behaviour had drifted:
+
+- **`turn hull left by 90` turned 144°.** The block counted degrees as they went
+  past and stopped at 90, by which point the hull was still spinning and coasted
+  well beyond. Turns now aim at an absolute heading and settle on it, braking as
+  they arrive. Measured after the fix: 91°.
+- **`point hull at the target` finished 20° off** a target it claimed to get
+  within 9° of, for the same reason.
+
+Both were real gameplay bugs, not test artefacts. Neither was visible from
+watching a battle, because a bot that over-rotates still looks like a bot doing
+something.
+
+## 10. Notes from implementation
 
 - **A stationary bot must not be competitive, and nearly was.** Lamppost — a bot
   whose entire program is "sweep and shoot" — tied for first until the gun

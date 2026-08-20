@@ -1,4 +1,14 @@
-import { BLOCKS, BLOCK_BY_OP, COMPARES, SENSORS, type BlockDef, type Category } from './blocks';
+import {
+  BLOCKS,
+  BLOCK_BY_OP,
+  COMPARES,
+  SENSORS,
+  SENSOR_BY_ID,
+  allowedSensors,
+  slotSuffix,
+  type BlockDef,
+  type Category,
+} from './blocks';
 import { cloneNode, makeNode, uid, type Node, type Program } from './program';
 
 /**
@@ -85,49 +95,62 @@ export class ScriptEditor {
       if (!slot) return '';
       const value = node.args[key];
 
-      // Read-only blocks show their values as plain text. Disabled dropdowns
-      // truncate long sensor names and eat horizontal space the panel has not
-      // got, and there is nothing to interact with anyway.
-      if (this.readOnly) {
-        const unit = slot.kind === 'number' && slot.unit ? `<span class="unit">${slot.unit}</span>` : '';
-        if (slot.kind === 'number') {
-          const src = String(node.args[`${key}_src`] ?? '');
+      if (slot.kind === 'number') {
+        // Only sensors measuring the right thing may drive this amount, so
+        // "drive forward for [bots still alive] seconds" is never offered.
+        const usable = allowedSensors(def, key, node.args);
+        const suffix = slotSuffix(def, key, node.args);
+        const unit = suffix ? `<span class="unit">${esc(suffix)}</span>` : '';
+        const src = String(node.args[`${key}_src`] ?? '');
+
+        if (this.readOnly) {
           const add = Number(value) || 0;
-          if (src) {
-            const name = SENSORS.find((x) => x[0] === src)?.[1] ?? src;
-            return `<b class="val">${esc(name)}</b>${add ? ` + <b class="val">${add}</b>` : ''}${unit}`;
+          const chosen = SENSOR_BY_ID[src];
+          if (chosen) {
+            return `<b class="val">${esc(chosen.label)}</b>${add ? ` + <b class="val">${add}</b>` : ''}${unit}`;
           }
           return `<b class="val">${esc(String(value))}</b>${unit}`;
         }
+
+        const off = this.readOnly ? 'disabled' : '';
+        const box = `<input class="slot num" type="number" data-slot="${key}" value="${value}"
+            min="${slot.min}" max="${slot.max}" step="${Math.abs(slot.max) <= 10 ? 0.1 : 1}"
+            draggable="false" ${off} />`;
+
+        // A slot nothing can measure — gun power, say — is just a number.
+        if (!usable.length) return `${box}${unit}`;
+
+        const picker = `<select class="slot src" data-src="${key}" draggable="false">
+            <option value="">a set amount</option>
+            ${usable
+              .map(
+                (x) =>
+                  `<option value="${x.id}" ${x.id === src ? 'selected' : ''} title="${esc(x.help)}">${esc(x.label)}</option>`,
+              )
+              .join('')}
+          </select>`;
+        return `${picker}${src ? '<span class="plus">+</span>' : ''}${box}${unit}`;
+      }
+
+      if (this.readOnly) {
         const opts =
           slot.kind === 'sensor'
-            ? SENSORS.map((x) => [x[0], x[1]] as [string, string])
+            ? SENSORS.map((x) => [x.id, x.label] as [string, string])
             : slot.kind === 'compare'
               ? COMPARES
               : slot.options;
         return `<b class="val">${esc(labelOf(opts, value))}</b>`;
       }
-      if (slot.kind === 'number') {
-        // Any amount may come from a sensor instead of a fixed value. That is
-        // what makes aiming something the player builds rather than is given.
-        const src = String(node.args[`${key}_src`] ?? '');
-        const opts = [['', 'a set amount'] as [string, string], ...SENSORS.map((s) => [s[0], s[1]] as [string, string])];
-        const picker = `<select class="slot src" data-src="${key}" draggable="false" ${this.readOnly ? 'disabled' : ''}>${opts
-          .map((o) => `<option value="${o[0]}" ${o[0] === src ? 'selected' : ''}>${esc(o[1])}</option>`)
-          .join('')}</select>`;
-        const plus = src ? '<span class="plus">+</span>' : '';
-        const off = this.readOnly ? 'disabled' : '';
-        return `${picker}${plus}<input class="slot num" type="number" data-slot="${key}" value="${value}"
-                  min="${slot.min}" max="${slot.max}" step="${Math.abs(slot.max) <= 10 ? 0.1 : 1}"
-                  draggable="false" ${off} />${slot.unit ? `<span class="unit">${slot.unit}</span>` : ''}`;
+
+      if (slot.kind === 'sensor') {
+        return `<select class="slot pick" data-slot="${key}" draggable="false">${SENSORS.map(
+          (x) =>
+            `<option value="${x.id}" ${x.id === value ? 'selected' : ''} title="${esc(x.help)}">${esc(x.label)}</option>`,
+        ).join('')}</select>`;
       }
-      const options =
-        slot.kind === 'sensor'
-          ? SENSORS.map((s) => [s[0], s[1]] as [string, string])
-          : slot.kind === 'compare'
-            ? COMPARES
-            : slot.options;
-      return `<select class="slot pick" data-slot="${key}" draggable="false" ${this.readOnly ? 'disabled' : ''}>${options
+
+      const options = slot.kind === 'compare' ? COMPARES : slot.options;
+      return `<select class="slot pick" data-slot="${key}" draggable="false">${options
         .map((o) => `<option value="${o[0]}" ${o[0] === value ? 'selected' : ''}>${esc(o[1])}</option>`)
         .join('')}</select>`;
     });
@@ -219,7 +242,16 @@ export class ScriptEditor {
 
     const clearGaps = () => q('.gap').forEach((g) => g.classList.remove('over'));
 
+    const help = document.getElementById('blockhelp');
+    const showHelp = (op: string) => {
+      const def = BLOCK_BY_OP[op];
+      if (!help || !def) return;
+      help.innerHTML = `<h4>${esc(def.text.replace(/\{\w+\}/g, '…'))}</h4><p>${esc(def.help)}</p>`;
+      help.classList.remove('empty');
+    };
+
     q<HTMLElement>('[data-new]').forEach((el) => {
+      el.addEventListener('mouseenter', () => showHelp(el.dataset.new!));
       el.addEventListener('dragstart', (ev) => {
         this.drag = { kind: 'new', op: el.dataset.new! };
         ev.dataTransfer?.setData('text/plain', el.dataset.new!);
@@ -327,10 +359,24 @@ export class ScriptEditor {
     q<HTMLSelectElement>('.blk select.slot').forEach((sel) => {
       sel.addEventListener('mousedown', (e) => e.stopPropagation());
       sel.addEventListener('change', () => {
-        const node = this.findNode(sel.closest('.blk') as HTMLElement);
+        const el = sel.closest('.blk') as HTMLElement;
+        const node = this.findNode(el);
         if (!node) return;
-        if (sel.dataset.src !== undefined) node.args[`${sel.dataset.src}_src`] = sel.value;
-        else node.args[sel.dataset.slot!] = sel.value;
+        if (sel.dataset.src !== undefined) {
+          node.args[`${sel.dataset.src}_src`] = sel.value;
+        } else {
+          node.args[sel.dataset.slot!] = sel.value;
+          // Switching the sensor on an "if" changes what the right-hand side is
+          // allowed to measure. Drop a source that no longer fits.
+          const def = BLOCK_BY_OP[node.op];
+          for (const key of Object.keys(def?.slots ?? {})) {
+            const src = String(node.args[`${key}_src`] ?? '');
+            if (!src) continue;
+            if (!allowedSensors(def, key, node.args).some((x) => x.id === src)) {
+              node.args[`${key}_src`] = '';
+            }
+          }
+        }
         this.onChange();
       });
     });

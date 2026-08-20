@@ -52,8 +52,12 @@ Scratch-shaped blocks dragged into stacks headed by a "when…" hat.
   standing plan carries on from where it left off. One plan plus interrupts, so
   two stacks can never fight over the controls.
 - Conditions are a fixed *sensor / comparison / value* triple, e.g.
-  `if [distance to target] [is less than] [10]`.
+  `if [distance to the target] [is less than] [10]`.
 - **No block both senses and acts.** Nothing aims for you.
+- **Amounts are typed.** Every number slot has a unit, and only sensors
+  measuring that unit can drive it — so `fire with power` takes a plain number,
+  `drive for` offers only times, and `turn` offers only angles. Nonsense like
+  "drive forward for [bots still alive] seconds" is never offered.
 
 **Any number slot can be driven by a sensor** instead of a fixed value, which is
 how you build aiming out of parts. The three "turn needed" sensors are signed —
@@ -136,6 +140,24 @@ Nobody drives — the bots run their own programs. Everything is in the left pan
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
 | **Workshop** (`B`) | Back to the editor. |
 
+## Checking the blocks actually behave
+
+Every block's help text says what it does *and when it finishes*. Those claims
+are tested rather than asserted — run this in the dev console:
+
+```js
+__clanker.check();
+```
+
+It sets up controlled battles, runs one block at a time, and prints the measured
+result against the documented one. 38 checks covering movement, the turret, the
+radar, control flow, events and slot typing.
+
+It earns its keep. On its first run it caught `turn hull left by 90` actually
+turning **144°** — the block stopped counting once it had rotated far enough,
+but the hull was still spinning and coasted on past. Turns now aim at a heading
+and settle on it: the same block measures 91°.
+
 ## Tuning harness
 
 Balance work here is impossible by hand, so the dev build exposes
@@ -185,3 +207,5 @@ If the repo is ever renamed, the `base` path must be renamed with it.
 | `src/hud.ts` | HUD, field roster, result standings |
 | `src/workshop.ts` | Workshop screen: editor plus battle setup |
 | `src/inspector.ts` | Arena-side script view, live highlight, profiling, transport |
+| `src/checks.ts` | Behaviour checks: what each block claims vs what it measures |
+| `src/storage.ts` | Autosave, script library, import/export |

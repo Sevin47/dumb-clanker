@@ -195,6 +195,9 @@ export class Workshop {
               <p class="pal-hint">Drag into the script. Drag a block back here to bin it.</p>
             </div>
             <div class="pal-list">${this.editor.palette()}</div>
+            <div class="blockhelp empty" id="blockhelp">
+              <p>Hover a block to see exactly what it does and when it finishes.</p>
+            </div>
           </aside>
 
           <main class="script">

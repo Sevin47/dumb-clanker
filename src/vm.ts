@@ -60,9 +60,8 @@ interface Action {
   deadline: number;
   dir?: string;
   power?: number;
-  /** For the manual turn blocks: radians still owed. */
-  owed?: number;
-  last?: number;
+  /** Absolute heading a turn is aiming to settle on. */
+  headingTarget?: number;
 }
 
 const STEP_BUDGET = 300;
@@ -259,17 +258,18 @@ export class ClankVM {
       case 'face_target':
         return { ...base, endsAt: this.clock + 2.5 };
       case 'turn_body': {
+        // Aim at an absolute heading rather than counting degrees as they go by.
+        // Counting overshoots badly: the hull is still spinning when the count
+        // is reached and coasts on, so a "90 degree" turn delivered about 144.
         // A negative amount flips the direction, which is how a signed sensor
-        // steers a turn without needing any arithmetic blocks.
+        // steers a turn with no arithmetic blocks in the language.
         const amount = clampTurn(this.val(node, 'n', s));
-        const sign = (String(node.args.dir) === 'left' ? -1 : 1) * (amount < 0 ? -1 : 1);
+        const sign = String(node.args.dir) === 'left' ? -1 : 1;
         return {
           op,
-          dir: sign < 0 ? 'left' : 'right',
-          owed: (Math.abs(amount) * Math.PI) / 180,
-          last: b.heading,
-          endsAt: this.clock + 5,
-          deadline: this.clock + 5,
+          headingTarget: b.heading + (sign * amount * Math.PI) / 180,
+          endsAt: this.clock + 6,
+          deadline: this.clock + 6,
         };
       }
 
@@ -314,16 +314,16 @@ export class ClankVM {
     const b = this.bot;
     switch (a.op) {
       case 'face_target':
-        return s.target_bearing < 9 || this.clock >= a.endsAt;
-      case 'turn_body':
-      case 'turn_radar': {
-        const now = a.op === 'turn_body' ? b.heading : b.radar;
-        const d = wrap(now - (a.last ?? now));
-        a.last = now;
-        a.owed = (a.owed ?? 0) - Math.abs(d);
-        if (a.op === 'turn_radar') return b.radar === this.radarTarget || this.clock >= a.endsAt;
-        return (a.owed ?? 0) <= 0 || this.clock >= a.endsAt;
+        return (
+          (s.target_bearing < 9 && Math.abs(b.body.getAngularVelocity()) < 0.6) || this.clock >= a.endsAt
+        );
+      case 'turn_body': {
+        // Settled means both pointing the right way and no longer spinning.
+        const err = Math.abs(deg(wrap((a.headingTarget ?? b.heading) - b.heading)));
+        return (err < 4 && Math.abs(b.body.getAngularVelocity()) < 0.5) || this.clock >= a.deadline;
       }
+      case 'turn_radar':
+        return b.radar === this.radarTarget || this.clock >= a.endsAt;
       case 'turn_turret':
         return b.turret === this.turretTarget || this.clock >= a.endsAt;
       case 'wait_until': {
@@ -342,6 +342,9 @@ export class ClankVM {
     const t = b.target;
     const angVel = b.body.getAngularVelocity();
     const toward = (rel: number) => Math.max(-1, Math.min(1, rel * 2.6 - angVel * 0.22));
+    // Blocks that must *stop* on a heading need much heavier damping, or the
+    // hull sails straight past the angle it was asked for.
+    const settleOn = (rel: number) => Math.max(-1, Math.min(1, rel * 3.2 - angVel * 0.55));
     const relBearing = t ? wrap(b.angleTo(t) - b.heading) : 0;
 
     if (a) {
@@ -360,7 +363,7 @@ export class ClankVM {
           break;
         case 'face_target':
           this.throttle = 0;
-          this.turn = toward(relBearing);
+          this.turn = settleOn(relBearing);
           break;
         case 'stop':
           this.throttle = 0;
@@ -368,7 +371,7 @@ export class ClankVM {
           break;
         case 'turn_body':
           this.throttle = 0;
-          this.turn = a.dir === 'left' ? -1 : 1;
+          this.turn = settleOn(wrap((a.headingTarget ?? b.heading) - b.heading));
           break;
         default:
           break;

@@ -5,6 +5,7 @@ import { Match, type Entrant } from './match';
 import { MATCH_SECONDS } from './spec';
 import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram } from './program';
 import { Renderer } from './render';
+import { checkBlocks, reportChecks } from './checks';
 import { Inspector } from './inspector';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -121,6 +122,13 @@ if (import.meta.env.DEV) {
     },
     get inspector() {
       return inspector;
+    },
+    /** Behaviour checks for every block. See src/checks.ts. */
+    checkBlocks,
+    check() {
+      // eslint-disable-next-line no-console
+      console.log(reportChecks());
+      return checkBlocks().filter((r) => !r.pass).length === 0 ? 'all passed' : 'see failures above';
     },
     renderer,
     Match,

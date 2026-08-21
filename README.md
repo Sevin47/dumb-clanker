@@ -131,9 +131,25 @@ with the block currently executing outlined in white. Every block carries a
 running tally:
 
 - `11× · 8%` — it ran eleven times and held the bot for 8% of the battle.
+- **`7× · never true`** — the condition is being checked and has never once
+  passed, so everything inside it is dead. This one hides well: the block looks
+  busy on the tally while the code under it has never run.
 - **`never`** — it has not run at all. This is usually the actual bug: an event
   that never fires, or a branch whose test is never true. Blocks that never run
   are dimmed, and a warning appears if a whole stack has stayed cold.
+
+### The three channels
+
+Under the script are three readouts: **driving**, **turret**, **radar**.
+
+They are there because the channels persist. A drive block sets the throttle and
+nothing clears it until another motion block runs, so a script that spends a
+second swinging the turret spends that second driving as well. That is invisible
+from reading the script and it is the single most common cause of a bot that
+sails into a wall just after checking it was clear.
+
+Underneath, **Sensors** opens a live list of all fifteen readings, so you can
+watch what your script is actually deciding on.
 
 ## Controls
 

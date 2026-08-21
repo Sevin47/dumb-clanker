@@ -735,3 +735,91 @@ table.bench tr.you td {
   color: var(--text);
   font-weight: 600;
 }
+
+/* ------------------------------------------------- inspector: channels + sensors */
+
+/* The three channels persist whatever the script is doing, so they are always
+   on screen. This is the hidden state that catches people. */
+.ins-chan {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+}
+
+.chan {
+  background: var(--panel);
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+.chan-k {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chan-v {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chan-v.busy { color: var(--amber); }
+
+.ins-watch {
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.ins-watch > summary {
+  padding: 7px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ins-watch > summary:hover { color: var(--dim); }
+.ins-watch[open] > summary { color: var(--dim); }
+
+.watch-grid {
+  max-height: 30vh;
+  overflow-y: auto;
+  padding: 0 14px 10px;
+}
+
+.watch-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.watch-k {
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-v {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}

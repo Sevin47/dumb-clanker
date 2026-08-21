@@ -46,7 +46,7 @@ exist purely to be looked at. That roughly halved the cost.
 
 Measured: **100 battles in 7 seconds.**
 
-### 1.3 Sensor watch (small)
+### 1.3 Sensor watch — **done**
 
 Fifteen live numbers beside the script in the arena. `vm.senses(match)` already
 computes the lot every tick and hands back a plain object, so this is mostly a
@@ -54,7 +54,7 @@ table and a formatter.
 
 - `src/inspector.ts` — a collapsible panel, values updated on the existing tick.
 
-### 1.4 Channel gauges (small)
+### 1.4 Channel gauges — **done**
 
 The sticky throttle is invisible hidden state and it catches everybody. Show it.
 
@@ -65,14 +65,20 @@ The sticky throttle is invisible hidden state and it catches everybody. Show it.
 Worth doing even though Phase 2 may change what the channels mean. It is the
 diagnostic that tells you whether Phase 2 worked.
 
-### 1.5 Never-true branch counter (small)
+### 1.5 Never-true branch counter — **done**
 
 The `never` marker on cold blocks is the best thing in the inspector. Extend the
 same idea to conditions.
 
 - `src/vm.ts` — tally how often each `if` and `if else` was tested and how often
   it was true.
-- `src/inspector.ts` — `checked 4000 times, never true` on the block.
+- `src/inspector.ts` — the block reads `7× · never true` and greys out like a
+  block that never ran, because everything inside it is dead either way.
+
+Fixed a copy bug found while testing this: `slotSuffix` appended the unit label
+to blocks that already name their own unit, giving "fire with power 3 power" and
+"repeat 4 bots times". An empty suffix is now a real answer rather than a missing
+one.
 
 The *starvation* warning I wanted alongside this is deliberately deferred. If
 Phase 2 lands, starvation stops being a thing that can happen, and building an

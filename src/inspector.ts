@@ -1,5 +1,7 @@
+import { SENSORS } from './blocks';
 import { ScriptEditor } from './editor';
 import type { Match } from './match';
+import type { Node } from './program';
 import type { ClankVM } from './vm';
 
 /**
@@ -25,6 +27,43 @@ export interface Transport {
 
 const SPEEDS = [0.5, 1, 2, 4];
 
+const CHANNELS = ['driving', 'turret', 'radar'];
+
+const deg = (r: number) => (r * 180) / Math.PI;
+
+/** Trim a heading difference to the short way round. */
+function wrapDeg(d: number): number {
+  while (d > 180) d -= 360;
+  while (d < -180) d += 360;
+  return d;
+}
+
+/**
+ * How each sensor reads on screen. The unit decides the precision: a distance
+ * to a tenth of a metre is useful, a heading to a tenth of a degree is noise.
+ */
+function formatSense(id: string, unit: string, v: number): string {
+  // 999 is the "I have never scanned anybody" sentinel. Printing it as a real
+  // distance invites people to compare against it, which is not the idea.
+  if ((id === 'target_distance' || id === 'target_age') && v >= 999) return 'nobody';
+  switch (unit) {
+    case 'angle':
+      return `${Math.round(v)}°`;
+    case 'percent':
+      return `${Math.round(v)}%`;
+    case 'time':
+      return `${v.toFixed(1)}s`;
+    case 'distance':
+      return `${v.toFixed(1)}m`;
+    case 'speed':
+      return `${v.toFixed(1)}m/s`;
+    case 'count':
+      return String(Math.round(v));
+    default:
+      return v.toFixed(1);
+  }
+}
+
 export class Inspector {
   private root: HTMLElement;
   private scriptHost: HTMLElement;
@@ -36,6 +75,12 @@ export class Inspector {
   private nodes = new Map<string, HTMLElement>();
   private profs = new Map<string, HTMLElement>();
   private statsAt = 0;
+
+  /** Live readouts. Built once, then only their text changes. */
+  private senseCells = new Map<string, HTMLElement>();
+  private chanCells = new Map<string, HTMLElement>();
+  /** The "if" blocks in this battle's script, so a branch that never fires shows. */
+  private conditionIds = new Set<string>();
 
   transport: Transport = { paused: false, speed: 1, stepOnce: false };
 
@@ -53,6 +98,21 @@ export class Inspector {
       </header>
       <div class="ins-script" id="ins-script"></div>
       <p class="ins-note" id="ins-note"></p>
+      <div class="ins-chan">
+        ${CHANNELS.map(
+          (k) => `<div class="chan"><span class="chan-k">${k}</span>
+            <span class="chan-v" id="chan-${k}">off</span></div>`,
+        ).join('')}
+      </div>
+      <details class="ins-watch">
+        <summary>Sensors</summary>
+        <div class="watch-grid">
+          ${SENSORS.map(
+            (sen) => `<div class="watch-row"><span class="watch-k">${sen.label}</span>
+              <span class="watch-v" id="sense-${sen.id}">0</span></div>`,
+          ).join('')}
+        </div>
+      </details>
       <div class="ins-transport">
         <button id="ins-pause" title="Pause the battle. Shortcut: space">Pause</button>
         <button id="ins-step" title="Move on one frame. Shortcut: full stop">Step</button>
@@ -71,6 +131,10 @@ export class Inspector {
     this.scriptHost = this.root.querySelector('#ins-script')!;
     this.statusEl = this.root.querySelector('#ins-status')!;
     this.noteEl = this.root.querySelector('#ins-note')!;
+    for (const sen of SENSORS) {
+      this.senseCells.set(sen.id, this.root.querySelector(`#sense-${sen.id}`)!);
+    }
+    for (const k of CHANNELS) this.chanCells.set(k, this.root.querySelector(`#chan-${k}`)!);
 
     this.root.querySelector<HTMLButtonElement>('#ins-pause')!.onclick = () => this.togglePause();
     this.root.querySelector<HTMLButtonElement>('#ins-step')!.onclick = () => this.step();
@@ -128,6 +192,16 @@ export class Inspector {
       const prof = el.querySelector<HTMLElement>('.prof');
       if (prof) this.profs.set(el.dataset.node!, prof);
     }
+    this.conditionIds.clear();
+    const walk = (list: Node[]) => {
+      for (const n of list) {
+        if (n.op === 'if' || n.op === 'if_else') this.conditionIds.add(n.id);
+        walk(n.body ?? []);
+        walk(n.body2 ?? []);
+      }
+    };
+    for (const st of vm.program.stacks) walk(st.body);
+
     this.builtFor = vm;
     this.lastLive = null;
     this.statsAt = 0;
@@ -153,6 +227,7 @@ export class Inspector {
     if (now - this.statsAt > 250) {
       this.statsAt = now;
       this.paintStats(vm);
+      this.paintWatch(m, vm);
     }
 
     const status = !m.player.alive
@@ -183,6 +258,62 @@ export class Inspector {
       : `${dead.length} stacks have never run. Their events may never happen.`;
   }
 
+  /**
+   * The live sensor values and the three channels.
+   *
+   * The channels are the point of this. They persist: a drive block sets the
+   * throttle and nothing clears it until another motion block runs, so a script
+   * that spends a second aiming spends that second driving as well. That is
+   * invisible from reading the script and it catches everybody.
+   */
+  private paintWatch(m: Match, vm: ClankVM) {
+    const bot = m.player;
+    const s = vm.senses(m) as unknown as Record<string, number>;
+    for (const sen of SENSORS) {
+      const cell = this.senseCells.get(sen.id);
+      if (!cell) continue;
+      const text = formatSense(sen.id, sen.unit, s[sen.id] ?? 0);
+      if (cell.textContent !== text) cell.textContent = text;
+    }
+
+    const c = vm.channels;
+    // Throttle off and still moving is coasting, which is a different thing
+    // from stopped: the bot has no brakes and slides for a while.
+    const dir =
+      c.throttle > 0.05
+        ? 'forward'
+        : c.throttle < -0.05
+          ? 'reverse'
+          : bot.speed > 0.3
+            ? 'coasting'
+            : 'stopped';
+    // Kept short on purpose: the cell is a third of a phone's width.
+    const steer = c.turn > 0.05 ? ', right' : c.turn < -0.05 ? ', left' : '';
+    this.setChan('driving', `${dir}${steer}`, c.throttle !== 0);
+
+    const gap = c.turretTarget === null ? null : Math.abs(wrapDeg(deg(c.turretTarget - bot.turret)));
+    this.setChan(
+      'turret',
+      gap === null ? 'holding' : gap < 1 ? 'on its mark' : `${Math.round(gap)}° to go`,
+      gap !== null && gap >= 1,
+    );
+
+    const radar =
+      c.radarSpin !== 0
+        ? `sweeping ${c.radarSpin > 0 ? 'right' : 'left'}`
+        : c.radarTarget === null
+          ? 'holding'
+          : 'turning';
+    this.setChan('radar', radar, c.radarSpin !== 0);
+  }
+
+  private setChan(key: string, text: string, busy: boolean) {
+    const el = this.chanCells.get(key);
+    if (!el) return;
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.toggle('busy', busy);
+  }
+
   private paintStats(vm: ClankVM) {
     const total = Math.max(0.001, vm.elapsed);
     for (const [id, el] of this.profs) {
@@ -197,6 +328,15 @@ export class Inspector {
         continue;
       }
       host?.classList.remove('cold');
+
+      // A condition that runs constantly and is never once true looks perfectly
+      // healthy on the tally, but everything inside it is dead code.
+      if (this.conditionIds.has(id) && (vm.trueHits.get(id) ?? 0) === 0) {
+        el.textContent = `${hits}× · never true`;
+        host?.classList.add('cold');
+        continue;
+      }
+
       el.textContent = pct >= 1 ? `${hits}× · ${pct}%` : `${hits}×`;
     }
   }

@@ -272,7 +272,7 @@ export const BLOCKS: BlockDef[] = [
     op: 'fire',
     cat: 'turret',
     text: 'fire with power {n}',
-    slots: { n: { kind: 'number', def: 1.5, min: 0.5, max: 3, unit: 'power' } },
+    slots: { n: { kind: 'number', def: 1.5, min: 0.5, max: 3, unit: 'power', suffix: '' } },
     help: 'Fires instantly and moves straight to the next block. Does nothing at all if the gun is still hot. Power 0.5 does 2 damage at 20 m/s; power 3 does 16 at 10 m/s and locks the gun for about 3 seconds.',
   },
 
@@ -304,7 +304,7 @@ export const BLOCKS: BlockDef[] = [
     op: 'repeat',
     cat: 'control',
     text: 'repeat {n} times',
-    slots: { n: { kind: 'number', def: 4, min: 1, max: 50, unit: 'count' } },
+    slots: { n: { kind: 'number', def: 4, min: 1, max: 50, unit: 'count', suffix: '' } },
     bodies: 1,
     help: 'Runs what is inside a set number of times, then carries on to the next block.',
   },
@@ -370,7 +370,9 @@ export function allowedSensors(def: BlockDef, key: string, args: Record<string, 
 export function slotSuffix(def: BlockDef, key: string, args: Record<string, string | number>): string {
   const slot = def.slots?.[key];
   if (!slot || slot.kind !== 'number') return '';
-  if (slot.suffix) return slot.suffix;
+  // '' is a real answer, not a missing one. A block whose own text already names
+  // the unit sets it, because "fire with power 3 power" reads badly.
+  if (slot.suffix !== undefined) return slot.suffix;
   if (slot.unit === 'match') {
     const chosen = SENSOR_BY_ID[String(args.sensor ?? '')];
     return chosen ? UNIT_LABEL[chosen.unit] : '';

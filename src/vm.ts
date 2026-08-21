@@ -94,6 +94,24 @@ export class ClankVM {
   note = '';
 
   /**
+   * The three channels, as the bot is actually holding them.
+   *
+   * These persist. A drive block sets the throttle and nothing clears it until
+   * another motion block runs, which is the single most surprising thing about
+   * the language: aiming the turret for a second means driving blind for a
+   * second. Hidden state that bites people should be on the screen.
+   */
+  get channels() {
+    return {
+      throttle: this.throttle,
+      turn: this.turn,
+      turretTarget: this.turretTarget,
+      radarSpin: this.radarSpin,
+      radarTarget: this.radarTarget,
+    };
+  }
+
+  /**
    * Profiling, so the arena can show which blocks actually run and where the
    * time goes. A block that never runs is usually the bug: an event that never
    * fires, or a branch whose test is never true.
@@ -101,6 +119,16 @@ export class ClankVM {
   readonly hits = new Map<string, number>();
   readonly seconds = new Map<string, number>();
   elapsed = 0;
+
+  /**
+   * How many of an "if" block's checks came back true.
+   *
+   * A block that never runs is the obvious bug and the inspector already flags
+   * it. The quieter one is a condition that runs constantly and is never once
+   * true: the block inside it is dead, but the "if" itself looks perfectly
+   * healthy because it is ticking over thousands of times.
+   */
+  readonly trueHits = new Map<string, number>();
 
   constructor(
     private bot: Bot,
@@ -128,6 +156,7 @@ export class ClankVM {
     this.prevHealthHat = {};
     this.activeBlockId = null;
     this.note = '';
+    this.trueHits.clear();
     this.bot.controls.throttle = 0;
     this.bot.controls.turn = 0;
     this.bot.controls.fire = 0;
@@ -436,20 +465,20 @@ export class ClankVM {
         case 'repeat':
           ctx.frames.push({ body: node.body ?? [], index: 0, loop: node, repeats: Math.round(this.val(node, 'n', s)) });
           break;
-        case 'if':
-          if (this.test(s, String(node.args.sensor), String(node.args.cmp), this.val(node, 'n', s))) {
+        case 'if': {
+          const yes = this.test(s, String(node.args.sensor), String(node.args.cmp), this.val(node, 'n', s));
+          if (yes) {
+            this.trueHits.set(node.id, (this.trueHits.get(node.id) ?? 0) + 1);
             ctx.frames.push({ body: node.body ?? [], index: 0 });
           }
           break;
-        case 'if_else':
-          ctx.frames.push({
-            body:
-              (this.test(s, String(node.args.sensor), String(node.args.cmp), this.val(node, 'n', s))
-                ? node.body
-                : node.body2) ?? [],
-            index: 0,
-          });
+        }
+        case 'if_else': {
+          const yes = this.test(s, String(node.args.sensor), String(node.args.cmp), this.val(node, 'n', s));
+          if (yes) this.trueHits.set(node.id, (this.trueHits.get(node.id) ?? 0) + 1);
+          ctx.frames.push({ body: (yes ? node.body : node.body2) ?? [], index: 0 });
           break;
+        }
         case 'sweep':
         case 'turn_radar': {
           const ra = this.startAction(node, s);

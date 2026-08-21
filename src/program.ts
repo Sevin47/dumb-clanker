@@ -106,17 +106,26 @@ export interface RivalDef {
   id: string;
   name: string;
   tagline: string;
+  /**
+   * The one thing this opponent is here to teach. They are a difficulty curve
+   * pretending to be a menu, so each one is beatable with a skill the previous
+   * one made you learn.
+   */
+  lesson: string;
   program: () => Program;
 }
 
 /**
- * The opposition. Every one of these is written in the same blocks the player
- * has, and can be opened and copied — a beaten player should be able to read
- * exactly what did it.
+ * The opposition, in the order they should be met. Every one is written in the
+ * same blocks the player has, though the scripts are not readable: work out
+ * what they are doing by watching them.
+ *
+ * The order is the curve. Beat one and the next unlocks.
  */
 export const RIVALS: RivalDef[] = [
   {
     id: 'lamppost',
+    lesson: 'Aiming. It never moves, so if you cannot hit it the problem is your gun, not their evasion.',
     name: 'Lamppost',
     tagline: 'Never moves. Sweeps, swings the gun on, and fires heavy. Perfect aim and an easy target.',
     program: () => ({
@@ -131,6 +140,7 @@ export const RIVALS: RivalDef[] = [
   },
   {
     id: 'pacer',
+    lesson: 'Leading. It moves in a straight line, which is the easiest movement in the game to shoot in front of.',
     name: 'Pacer',
     tagline: 'Drives back and forth while sweeping. Learns the hard way that moving in a straight line is not evasion.',
     program: () => ({
@@ -152,6 +162,7 @@ export const RIVALS: RivalDef[] = [
   },
   {
     id: 'hunter',
+    lesson: 'Escaping. It closes and fires heavy at point blank. Be somewhere else.',
     name: 'Hunter',
     tagline: 'Holds the beam on you and closes. Fires heavy at point blank, light at range.',
     program: () => ({
@@ -173,6 +184,7 @@ export const RIVALS: RivalDef[] = [
   },
   {
     id: 'orbit',
+    lesson: 'Tracking. It circles, so a gun aimed at where it was will miss where it is.',
     name: 'Orbit',
     tagline: 'Circles whatever it finds while tracking with radar and gun. The one to beat.',
     program: () => ({
@@ -191,6 +203,7 @@ export const RIVALS: RivalDef[] = [
   },
   {
     id: 'coward',
+    lesson: 'Closing. It runs and plinks from range, so you have to go and get it.',
     name: 'Coward',
     tagline: 'Keeps its distance and plinks with light, fast rounds. Runs when hurt.',
     program: () => ({
@@ -207,5 +220,14 @@ export const RIVALS: RivalDef[] = [
     }),
   },
 ];
+
+/**
+ * The order the roster should be met in, easiest first. Each one is beatable
+ * with the skill the previous one forced you to learn.
+ */
+export const LADDER = ['lamppost', 'coward', 'pacer', 'orbit', 'hunter'];
+
+/** The roster in ladder order, which is how the workshop shows it. */
+export const rivalsInOrder = (): RivalDef[] => LADDER.map((id) => rivalById(id)).filter(Boolean);
 
 export const rivalById = (id: string) => RIVALS.find((r) => r.id === id) ?? RIVALS[0];

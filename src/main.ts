@@ -17,6 +17,8 @@ initInput();
 
 let match: Match | null = null;
 let lastEntrants: Entrant[] | null = null;
+/** Whether this battle's result has already been counted towards the ladder. */
+let resultCounted = false;
 
 const workshop = new Workshop(overlay, (entrants) => {
   lastEntrants = entrants;
@@ -25,11 +27,13 @@ const workshop = new Workshop(overlay, (entrants) => {
   inspectorToggle.hidden = false;
   inspector.show();
   renderer.resize();
+  resultCounted = false;
   match = new Match(entrants);
 });
 
 function restart() {
   if (!lastEntrants) return;
+  resultCounted = false;
   match = new Match(lastEntrants.map((e) => ({ ...e, program: cloneProgram(e.program) })));
 }
 
@@ -83,6 +87,12 @@ function frame(now: number) {
     }
     renderer.draw(match, dt);
     inspector.update(match, now);
+
+    // Climb the ladder. Counted once, the moment the battle is decided.
+    if (!resultCounted && match.phase === 'over') {
+      resultCounted = true;
+      if (match.result?.winner === match.player) workshop.recordWin();
+    }
 
     if (pressed('c')) {
       consume('c');

@@ -1,5 +1,5 @@
 import { BLOCK_BY_OP } from './blocks';
-import { makeNode, starterProgram, uid, type Node, type Program, type Stack } from './program';
+import { LADDER, makeNode, starterProgram, uid, type Node, type Program, type Stack } from './program';
 
 /**
  * Saving scripts.
@@ -30,6 +30,12 @@ export interface SaveFile {
   current: Program;
   library: SavedScript[];
   field: string[];
+  /**
+   * Rivals the player has beaten, which is what unlocks the next rung of the
+   * ladder. A save from before this existed has no list, and gets all of them:
+   * a returning player should not find four opponents suddenly taken away.
+   */
+  beaten: string[];
 }
 
 const emptyFile = (): SaveFile => ({
@@ -37,7 +43,8 @@ const emptyFile = (): SaveFile => ({
   currentName: 'My bot',
   current: starterProgram(),
   library: [],
-  field: ['lamppost', 'hunter'],
+  beaten: [],
+  field: ['lamppost'],
 });
 
 // ---------------------------------------------------------------- sanitising
@@ -106,7 +113,12 @@ export function loadFile(): SaveFile {
             }))
             .filter((s) => s.program.stacks.length)
         : [],
-      field: Array.isArray(raw.field) ? raw.field.filter((f) => typeof f === 'string') : ['lamppost', 'hunter'],
+      field: Array.isArray(raw.field) ? raw.field.filter((f) => typeof f === 'string') : ['lamppost'],
+      // No list at all means a save from before the ladder existed. Treat that
+      // player as a veteran rather than locking away what they already had.
+      beaten: Array.isArray(raw.beaten)
+        ? raw.beaten.filter((b) => typeof b === 'string')
+        : [...LADDER],
     };
   } catch {
     // Corrupt or unreadable storage should never stop the game opening.

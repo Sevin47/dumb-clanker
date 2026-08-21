@@ -1,7 +1,7 @@
 import { runBench, type BenchResult, type BenchRun } from './bench';
 import { DAMAGE_KINDS, DAMAGE_LABEL } from './bot';
 import { ScriptEditor } from './editor';
-import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram, uid, type Program } from './program';
+import { LADDER, cloneProgram, countBlocks, rivalById, rivalsInOrder, starterProgram, uid, type Program } from './program';
 import type { Entrant } from './match';
 import { exportScript, importScript, loadFile, saveFile, type SaveFile } from './storage';
 
@@ -138,6 +138,34 @@ export class Workshop {
       </section>`;
   }
 
+  /** Rivals the player may put in the arena: everything beaten, plus the next one. */
+  private unlocked(): Set<string> {
+    const beaten = new Set(this.file.beaten);
+    const out = new Set(beaten);
+    // The first unbeaten rung is always available, or there is no way to climb.
+    for (const id of LADDER) {
+      if (!beaten.has(id)) {
+        out.add(id);
+        break;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Called when a battle is won. Everything that was in the arena counts, so
+   * beating three at once climbs three rungs.
+   */
+  recordWin(): boolean {
+    const before = this.file.beaten.length;
+    for (const id of this.field) {
+      if (!this.file.beaten.includes(id)) this.file.beaten.push(id);
+    }
+    if (this.file.beaten.length === before) return false;
+    this.persist();
+    return true;
+  }
+
   /** Build the entrant list: you first, then the field. */
   entrants(): Entrant[] {
     const counts: Record<string, number> = {};
@@ -163,6 +191,10 @@ export class Workshop {
       .join('');
 
     const full = this.field.length >= MAX_OPPONENTS;
+    const open = this.unlocked();
+    const beaten = new Set(this.file.beaten);
+    const next = rivalsInOrder().find((r) => !beaten.has(r.id));
+
     return `
       <section class="card">
         <h2>The battle</h2>
@@ -173,13 +205,24 @@ export class Workshop {
           <li class="you"><span class="dot d0"></span>You</li>
           ${rows || '<li class="empty">Nobody else yet</li>'}
         </ol>
-        <div class="addrow">
-          ${RIVALS.map(
-            (r) =>
-              `<button class="add" data-add="${r.id}" ${full ? 'disabled' : ''} title="${r.tagline}">
-                 + ${r.name}</button>`,
-          ).join('')}
-        </div>
+        <ul class="ladder">
+          ${rivalsInOrder()
+            .map((r) => {
+              const won = beaten.has(r.id);
+              const can = open.has(r.id);
+              const cls = won ? 'won' : can ? 'open' : 'locked';
+              return `<li class="${cls}">
+                <button class="add" data-add="${r.id}" ${full || !can ? 'disabled' : ''}
+                  title="${can ? escapeHtml(r.tagline) : 'Beat the one above first'}">+</button>
+                <div>
+                  <b>${r.name}</b> ${won ? '<i class="tick">beaten</i>' : ''}
+                  <span>${can ? escapeHtml(r.lesson) : 'Locked. Beat the one above first.'}</span>
+                </div>
+              </li>`;
+            })
+            .join('')}
+        </ul>
+        ${next ? `<p class="explain">Next up: <b>${next.name}</b>.</p>` : '<p class="explain">You have beaten the whole roster.</p>'}
       </section>`;
   }
 

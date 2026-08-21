@@ -60,6 +60,9 @@ export interface Senses {
   gun_heat: number;
   my_health: number;
   my_speed: number;
+  /** How much of the turn you last commanded has not happened yet. */
+  turret_remaining: number;
+  radar_remaining: number;
   wall_distance: number;
   wall_ahead: number;
   bots_left: number;
@@ -231,6 +234,16 @@ export class ClankVM {
       gun_heat: b.gunHeat,
       my_health: b.healthPct,
       my_speed: b.speed,
+      // How far the part still has to travel to reach the heading it was last
+      // told to go to. This is about the machine, not the enemy: it reads 0
+      // when there is no outstanding order, and it does not care whether the
+      // order was any good.
+      turret_remaining:
+        this.turretTarget === null ? 0 : Math.abs(deg(wrap(this.turretTarget - b.turret))),
+      radar_remaining:
+        this.radarSpin !== 0 || this.radarTarget === null
+          ? 0
+          : Math.abs(deg(wrap(this.radarTarget - b.radar))),
       wall_distance: Math.max(0, wall),
       wall_ahead: clearAhead(p.x, p.y, b.heading),
       bots_left: m.alive.length,

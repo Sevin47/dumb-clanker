@@ -126,6 +126,18 @@ export const SENSORS: SensorDef[] = [
   { id: 'my_health', label: 'my health %', unit: 'percent', help: 'How much of you is left, 0 to 100.' },
   { id: 'my_speed', label: 'my speed', unit: 'speed', help: 'How fast you are actually moving, in metres per second. Top speed is 10.' },
   {
+    id: 'turret_remaining',
+    label: 'turret: turn still to go',
+    unit: 'angle',
+    help: 'How far the turret has left to travel to reach the heading you last sent it to. Reads 0 when it has arrived, or when you never told it to go anywhere. This is about the gun, not the enemy: a stale order that has finished reads 0 even if they walked away. To decide whether to fire, "turret: how far off target" is usually the better test. This one answers a different question: did the swing I asked for land.',
+  },
+  {
+    id: 'radar_remaining',
+    label: 'radar: turn still to go',
+    unit: 'angle',
+    help: 'How far the radar has left to travel to reach the heading you last sent it to. Reads 0 while it is sweeping, because a sweep never arrives anywhere.',
+  },
+  {
     id: 'wall_distance',
     label: 'distance to the nearest wall',
     unit: 'distance',

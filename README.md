@@ -186,6 +186,19 @@ swing reads the error you were trying to remove. Put both in a `forever` loop
 and test on a later lap. Done that way it aims better than waiting does, because
 it re-aims every tick instead of committing to one stale angle.
 
+### Two ways to ask about the gun
+
+`turret: how far off target` measures the gun against **the enemy**. It is live
+every tick and it is what you almost always want before firing.
+
+`turret: turn still to go` measures the gun against **the heading you last sent
+it to**. It reads 0 the moment that order completes, whether or not the enemy is
+still there. Use it to ask "did the swing I asked for land", not "am I aimed".
+
+Measured, the difference is real: a bot gating its shot on the second one fires
+nearly twice as often at half the accuracy for the same damage. It earns its
+place only when the aiming happens somewhere else in the script from the firing.
+
 ### Knowing where the walls are
 
 There are two wall sensors and the difference matters.

@@ -443,6 +443,62 @@ export function checkBlocks(): CheckResult[] {
     );
   }
 
+  // --------------------------------------------------- orders still running
+  {
+    const m = scenario(prog([n('turret_start', { dir: 'right', n: 120 }), n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.05);
+    const justAfter = vm.senses(m).turret_remaining;
+    run(m, 2);
+    const settled = vm.senses(m).turret_remaining;
+    add(
+      'Sensing',
+      'turret turn still to go counts down as the gun swings',
+      near(justAfter, 120, 12) && settled < 1,
+      `reads ${justAfter.toFixed(0)} degrees a tick after ordering 120, and ${settled.toFixed(1)} once it arrives`,
+    );
+  }
+  {
+    // No order given, nothing outstanding. Same as Robocode's getGunTurnRemaining.
+    const m = scenario(prog([n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.3);
+    add(
+      'Sensing',
+      'turn still to go reads zero when nothing was ordered',
+      vm.senses(m).turret_remaining === 0 && vm.senses(m).radar_remaining === 0,
+      'no outstanding order means nothing left to travel',
+    );
+  }
+  {
+    const m = scenario(prog([n('sweep', { dir: 'right' }), n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.5);
+    add(
+      'Sensing',
+      'a sweeping radar has no turn left to go',
+      vm.senses(m).radar_remaining === 0,
+      'a sweep never arrives anywhere, so there is nothing outstanding',
+    );
+  }
+  {
+    // The distinction the sensor exists for: an order that has landed reads 0
+    // even though the gun is nowhere near the enemy.
+    const m = scenario(prog([n('turret_start', { dir: 'right', n: 90 }), n('stop', { n: 5 })]), {
+      me: [27, 27, 0],
+      them: [27, 12, 0],
+    });
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 2);
+    const s = vm.senses(m);
+    add(
+      'Sensing',
+      'turn still to go is about the gun, not the enemy',
+      s.turret_remaining < 1 && s.gun_error > 20,
+      `order complete (${s.turret_remaining.toFixed(1)}) while still ${s.gun_error.toFixed(0)} degrees off the target`,
+    );
+  }
+
   // ------------------------------------------------------------ sensing
   //
   // "clear space ahead of me" exists because "distance to the nearest wall"

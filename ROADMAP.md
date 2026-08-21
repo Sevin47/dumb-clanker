@@ -186,10 +186,65 @@ Wallwise is rebuilt on it: 15 blocks down to 11, and the `stop for 0.05` that
 existed only to clear the sticky throttle before a slow aim is gone, because
 aiming no longer holds anything up.
 
+#### What Robocode does about the same problem
+
+Checked against the Robocode source rather than memory, because it has had
+twenty years to get this wrong and didn't.
+
+It made the same split. `Robot` has blocking calls, `AdvancedRobot` adds
+`setAhead`, `setTurnGunRight`, `setFire`, which "return immediately, and will not
+execute until you call `execute()`". Every serious bot is an `AdvancedRobot`, and
+the official guidance is that calling `fire()` inside `onScannedRobot` is slow
+and you should call `setFire()`. So they did not design starvation away
+mechanically. They made the non-blocking path the idiom and documented it. Our
+rivals do the opposite: Hunter runs `charge`, a 1.4 second blocking block, inside
+`when my radar passes over a bot`.
+
+The structural difference is `execute()`. It is a turn boundary: handlers set
+their commands and return, the main loop sets its own, and both contribute to the
+same turn. They never compete for time, so nothing can starve. We have no such
+boundary, which is the whole of the difference.
+
+Their event priorities are the same shape as ours, with the most frequent event
+lowest: ScannedRobotEvent 10, HitByBulletEvent 20, HitWallEvent 30. Ours runs
+`when_scanned` at 3 under the collision hats at 4. Nothing to change there.
+
 **What this means for Route B.** Starvation is not what I thought. The standing
 plan's share of executions barely moved either way. What starves it is interrupt
 stacks firing constantly, not turret blocks holding it up. Route B should be
 judged on that, not on the turret.
+
+Robocode is also evidence against Route B outright. It never needed concurrent
+stacks: one thread, non-blocking actions, and a turn boundary as the
+synchronisation point was enough. The cheaper thing to try first is extending
+`start` to the motion blocks so a standing plan can command everything without
+ever blocking.
+
+### 2.2a Turn-still-to-go sensors — **done, and only a partial win**
+
+Robocode's `getGunTurnRemaining()` is what makes its non-blocking aiming usable:
+the canonical bot fires on `Math.abs(getGunTurnRemaining()) < 10` rather than on
+a live angle to the enemy. Added the equivalents, `turret: turn still to go` and
+`radar: turn still to go`.
+
+Benched three ways at 50 to 100 battles. The result is smaller than the analogy
+suggested, and the reason is instructive.
+
+With aim and fire in the same loop, the new sensor changes nothing: 76% wins
+either way, 51 against 49 damage dealt, but 66 shots at 11% accuracy against 38
+shots at 19%. Same outcome, twice the ammunition.
+
+With the aim in a `when my radar passes over a bot` stack and the shot in the
+standing plan, which is Robocode's own shape, it does help: damage dealt 41 to
+51 across 80 battles.
+
+**Why it matters less for us.** Robocode needs the remaining-turn trick because
+enemy position is only fresh inside the handler. Our contacts persist and carry
+an age, so `turret: how far off target` is live every tick. We already had the
+better sensor for the common case; this one answers the narrower question of
+whether a commanded swing landed. Kept because it is four lines, purely
+additive, and it is the only way to ask that question, but the help text now
+says plainly that the other sensor is usually the right gate.
 
 ### 2.3 Route B: three concurrent stacks (large, only if still wanted)
 

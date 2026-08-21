@@ -327,7 +327,7 @@ export function checkBlocks(): CheckResult[] {
   {
     const m = scenario(prog([n('stop', { n: 9 })], [{ hat: 'when_shot', body: [n('stop', { n: 0.1 })] }]), { me: [27, 27, 0] });
     run(m, 0.3);
-    m.bots[0].hurt(10, 'test');
+    m.bots[0].hurt(10, 'other', 'test');
     m.bots[0].eventShot = true;
     run(m, 0.3);
     const vm = m.vms.get(m.bots[0])!;
@@ -346,7 +346,7 @@ export function checkBlocks(): CheckResult[] {
       me: [27, 27, 0],
     });
     run(m, 0.2);
-    m.bots[0].hurt(80, 'test');
+    m.bots[0].hurt(80, 'other', 'test');
     run(m, 0.4);
     const vm = m.vms.get(m.bots[0])!;
     add('Events', 'health threshold fires once', vm.hits.get(vm.program.stacks[1].hat.id) === 1, `fired ${vm.hits.get(vm.program.stacks[1].hat.id)} time(s)`);

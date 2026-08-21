@@ -148,6 +148,21 @@ Nobody drives — the bots run their own programs. Everything is in the left pan
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
 | **Workshop** (`B`) | Back to the editor. |
 
+## Testing a bot properly
+
+One battle tells you almost nothing. Starting positions are random, an early
+power-3 round decides a lot, and a script that looks broken in one match wins the
+next three.
+
+The **Test bench** in the workshop runs the same field 10, 30 or 100 times with
+nothing drawn and averages the result: win rate, damage dealt and taken, time
+alive, accuracy. A hundred battles takes about seven seconds.
+
+Underneath it says what actually hurt you, split into shot, walls and ramming.
+That is usually the useful line. A bot losing 40 health a battle to walls has a
+movement problem, not an aiming problem, and nothing else on the screen tells you
+that. The same split appears on the standings at the end of a normal battle.
+
 ## On a phone
 
 The whole game works on a touch screen.

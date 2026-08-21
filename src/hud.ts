@@ -1,4 +1,5 @@
 import { HUD_H, HUD_W } from './config';
+import { DAMAGE_KINDS, DAMAGE_LABEL } from './bot';
 import { P } from './palette';
 import type { Match } from './match';
 import { GUN } from './spec';
@@ -123,7 +124,7 @@ export class Hud {
     if (!r) return;
 
     const rows = r.standings.length;
-    const h = 96 + rows * 15;
+    const h = 96 + rows * 15 + (m.player ? 18 : 0);
     const w = 300;
     const x = (this.w - w) / 2;
     const y = (this.h - h) / 2 + 8;
@@ -157,6 +158,23 @@ export class Hud {
       this.text(`${acc}%`, x + w - 16, ry, tint, 10, 600, 'right');
       ry += 15;
     });
+
+    // What actually beat you. A health bar going down only tells you that you
+    // lost; this is the part you can go and fix.
+    const me = m.player;
+    if (me) {
+      const parts = DAMAGE_KINDS.filter((k) => me.damageBy[k] >= 0.5).map(
+        (k) => `${DAMAGE_LABEL[k]} ${Math.round(me.damageBy[k])}`,
+      );
+      this.text(
+        parts.length ? `YOU TOOK   ${parts.join('    ')}` : 'YOU TOOK NO DAMAGE',
+        x + 16,
+        ry + 3,
+        P.textDim,
+        9,
+        600,
+      );
+    }
 
     this.text('R  run it again          B  back to the workshop', this.w / 2, y + h - 20, P.spark, 10, 600, 'center');
   }

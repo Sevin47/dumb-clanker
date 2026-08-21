@@ -64,6 +64,13 @@ export class Match {
   private accumulator = 0;
   private deaths = 0;
 
+  /**
+   * Nothing is being drawn, so skip the work that only exists to be looked at.
+   * Sparks, smoke, screen shake and the slow motion on a kill change nothing
+   * about who wins, and the bench runs thousands of battles.
+   */
+  readonly headless: boolean;
+
   get player(): Bot {
     return this.bots.find((b) => b.isPlayer) ?? this.bots[0];
   }
@@ -72,7 +79,8 @@ export class Match {
     return this.bots.filter((b) => b.alive);
   }
 
-  constructor(entrants: Entrant[]) {
+  constructor(entrants: Entrant[], opts: { headless?: boolean } = {}) {
+    this.headless = opts.headless ?? false;
     this.world = new World(Vec2(0, 0));
     this.buildWalls();
 
@@ -96,8 +104,8 @@ export class Match {
         const dmg = Math.max(IMPACT.ramMin, speed * IMPACT.ramPerSpeed);
         a.hitCooldown = IMPACT.cooldown;
         b.hitCooldown = IMPACT.cooldown;
-        a.hurt(dmg, `rammed by ${b.name}`);
-        b.hurt(dmg, `rammed by ${a.name}`);
+        a.hurt(dmg, 'ram', b.name);
+        b.hurt(dmg, 'ram', a.name);
         a.eventBumped = true;
         b.eventBumped = true;
         const p = a.position;
@@ -112,7 +120,7 @@ export class Match {
       bot.eventWall = true;
       if (bot.speed > IMPACT.wallSafeSpeed) {
         bot.hitCooldown = IMPACT.cooldown;
-        bot.hurt((bot.speed - IMPACT.wallSafeSpeed) * IMPACT.wallPerSpeed, 'drove into a wall');
+        bot.hurt((bot.speed - IMPACT.wallSafeSpeed) * IMPACT.wallPerSpeed, 'wall');
         this.noteDeaths();
       }
     });
@@ -198,6 +206,7 @@ export class Match {
     for (const b of this.bots) {
       if (b.alive || b.deathOrder !== 0) continue;
       b.deathOrder = ++this.deaths;
+      b.deathAt = MATCH_SECONDS - this.timeLeft;
       const p = b.position;
       this.sparks(p.x, p.y, 46, P.hot, 5);
       this.slowmo = 0.9;
@@ -213,6 +222,7 @@ export class Match {
   // ---------------------------------------------------------------- effects
 
   sparks(x: number, y: number, count: number, color: string, power = 1) {
+    if (this.headless) return;
     for (let i = 0; i < count; i++) {
       if (this.particles.length >= MAX_PARTICLES) this.particles.shift();
       const a = Math.random() * Math.PI * 2;
@@ -282,7 +292,7 @@ export class Match {
           if (!f || !f.testPoint(Vec2(b.x, b.y))) continue;
           b.dead = true;
           const dmg = GUN.damage(b.power);
-          bot.hurt(dmg, `shot by ${b.owner.name}`);
+          bot.hurt(dmg, 'shot', b.owner.name);
           bot.eventShot = true;
           b.owner.damageDealt += dmg;
           b.owner.shotsHit++;
@@ -330,13 +340,15 @@ export class Match {
     }
 
     if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - dt);
-    const scale = this.slowmo > 0 ? 0.3 : 1;
+    const scale = this.slowmo > 0 && !this.headless ? 0.3 : 1;
 
     this.accumulator += Math.min(dt, 0.1) * scale;
     while (this.accumulator >= DT) {
       this.accumulator -= DT;
       this.fixedStep();
     }
+
+    if (this.headless) return;
 
     this.shake = Math.max(0, this.shake - dt * 20);
     for (let i = this.particles.length - 1; i >= 0; i--) {

@@ -677,3 +677,61 @@ button { cursor: pointer; }
   color: var(--amber-ink);
   font-weight: 700;
 }
+
+/* ---------------------------------------------------------------- test bench */
+
+.benchrun {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.benchbar {
+  height: 4px;
+  background: var(--panel-3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.benchbar i {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  transition: width 0.12s linear;
+}
+
+table.bench {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+table.bench th {
+  text-align: right;
+  padding: 3px 0 5px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+
+table.bench td {
+  text-align: right;
+  padding: 4px 0;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+table.bench th:first-child,
+table.bench td:first-child {
+  text-align: left;
+}
+
+table.bench tr.you td {
+  color: var(--text);
+  font-weight: 600;
+}

@@ -1,3 +1,5 @@
+import { runBench, type BenchResult, type BenchRun } from './bench';
+import { DAMAGE_KINDS, DAMAGE_LABEL } from './bot';
 import { ScriptEditor } from './editor';
 import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram, uid, type Program } from './program';
 import type { Entrant } from './match';
@@ -22,6 +24,11 @@ export class Workshop {
   private file: SaveFile;
   private storageBroken = false;
   private flash = '';
+
+  /** Test bench state. One battle proves nothing, so this runs a stack of them. */
+  private bench: BenchRun | null = null;
+  private benchBattles = 30;
+  private benchResult: BenchResult | null = null;
 
   constructor(
     private root: HTMLElement,
@@ -63,6 +70,10 @@ export class Workshop {
   }
 
   hide() {
+    // A bench run left going would keep chewing through battles behind the
+    // arena, competing with the battle the player is actually watching.
+    this.bench?.cancel();
+    this.bench = null;
     this.root.classList.remove('active');
     this.root.innerHTML = '';
   }
@@ -172,6 +183,101 @@ export class Workshop {
       </section>`;
   }
 
+  private benchCard(): string {
+    const running = !!this.bench;
+    const counts = [10, 30, 100];
+
+    let body: string;
+    if (running) {
+      body = `
+        <div class="benchrun">
+          <div class="benchbar"><i id="bench-fill" style="width:0%"></i></div>
+          <p class="explain" id="bench-count">Battle 0 of ${this.benchBattles}</p>
+          <button class="ghost small" id="bench-cancel">Stop</button>
+        </div>`;
+    } else if (this.benchResult) {
+      body = this.benchTable(this.benchResult);
+    } else {
+      body = '<p class="explain">Runs the same battle over and over with nothing drawn, then averages it. One battle tells you almost nothing.</p>';
+    }
+
+    return `
+      <section class="card">
+        <h2>Test bench</h2>
+        ${body}
+        <div class="addrow">
+          ${counts
+            .map(
+              (n) =>
+                `<button class="add" data-bench="${n}" ${running || this.field.length === 0 ? 'disabled' : ''}>
+                   ${n} battles</button>`,
+            )
+            .join('')}
+        </div>
+        ${this.field.length === 0 ? '<p class="explain">Add an opponent first.</p>' : ''}
+      </section>`;
+  }
+
+  private benchTable(r: BenchResult): string {
+    const rows = r.rows
+      .map((row) => {
+        const rate = Math.round((100 * row.wins) / r.battles);
+        return `<tr class="${row.isPlayer ? 'you' : ''}">
+          <td>${row.isPlayer ? 'You' : row.name}</td>
+          <td>${rate}%</td>
+          <td>${Math.round(row.avgDamageDealt)}</td>
+          <td>${Math.round(row.avgDamageTaken)}</td>
+          <td>${Math.round(row.avgSurvival)}s</td>
+          <td>${Math.round(row.accuracy)}%</td>
+        </tr>`;
+      })
+      .join('');
+
+    // What beat you, which is the part you can go and fix.
+    const me = r.rows.find((row) => row.isPlayer);
+    const split = me
+      ? DAMAGE_KINDS.filter((k) => me.damageBy[k] >= 0.5)
+          .sort((a, b) => me.damageBy[b] - me.damageBy[a])
+          .map((k) => `${DAMAGE_LABEL[k]} ${Math.round(me.damageBy[k])}`)
+          .join(', ')
+      : '';
+
+    return `
+      <table class="bench">
+        <thead><tr><th>Bot</th><th>Won</th><th>Dealt</th><th>Took</th><th>Alive</th><th>Hit</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="explain">${r.battles} battles, ${r.timeouts} went to the final bell.
+        Damage, time alive and accuracy are averages per battle.</p>
+      ${split ? `<p class="explain"><b>What hurt you:</b> ${split} per battle.</p>` : ''}`;
+  }
+
+  private startBench(battles: number) {
+    if (this.field.length === 0 || this.bench) return;
+    this.benchBattles = battles;
+    this.benchResult = null;
+    const entrants = this.entrants();
+
+    this.bench = runBench(
+      entrants,
+      battles,
+      (done, total) => {
+        // Patch the two live nodes in place. Re-rendering the whole workshop
+        // on every slice would rebuild the editor a hundred times a second.
+        const fill = document.getElementById('bench-fill');
+        const count = document.getElementById('bench-count');
+        if (fill) fill.style.width = `${Math.round((100 * done) / total)}%`;
+        if (count) count.textContent = `Battle ${Math.min(done + 1, total)} of ${total}`;
+      },
+      (result) => {
+        this.bench = null;
+        this.benchResult = result;
+        this.render();
+      },
+    );
+    this.render();
+  }
+
   private render() {
     const blocks = countBlocks(this.program);
     this.root.innerHTML = `
@@ -233,6 +339,7 @@ export class Workshop {
             </section>
             ${this.libraryCard()}
             ${this.battleCard()}
+            ${this.benchCard()}
             <button id="fight" ${this.field.length === 0 ? 'disabled' : ''}>
               ${this.field.length === 0 ? 'Add an opponent' : 'Fight'}</button>
             <p class="keys">Nobody drives. The script does.</p>
@@ -253,6 +360,19 @@ export class Workshop {
         this.render();
       };
     });
+
+    q<HTMLButtonElement>('[data-bench]').forEach((b) => {
+      b.onclick = () => this.startBench(Number(b.dataset.bench));
+    });
+
+    const cancel = this.root.querySelector<HTMLButtonElement>('#bench-cancel');
+    if (cancel) {
+      cancel.onclick = () => {
+        this.bench?.cancel();
+        this.bench = null;
+        this.render();
+      };
+    }
 
     q<HTMLButtonElement>('[data-add]').forEach((b) => {
       b.onclick = () => {

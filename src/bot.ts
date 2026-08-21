@@ -8,6 +8,25 @@ import { BOT, BOT_COLORS, GUN } from './spec';
  * one bot and the next is the Clank Script driving it.
  */
 
+/** What hurt you. Four categories, because four is what a player can act on. */
+export type DamageKind = 'shot' | 'wall' | 'ram' | 'other';
+
+export const DAMAGE_KINDS: DamageKind[] = ['shot', 'wall', 'ram', 'other'];
+
+export const DAMAGE_LABEL: Record<DamageKind, string> = {
+  shot: 'shot',
+  wall: 'walls',
+  ram: 'ramming',
+  other: 'other',
+};
+
+function deathText(kind: DamageKind, by: string): string {
+  if (kind === 'wall') return 'drove into a wall';
+  if (kind === 'shot') return by ? `shot by ${by}` : 'shot';
+  if (kind === 'ram') return by ? `rammed by ${by}` : 'rammed';
+  return by || 'unknown';
+}
+
 export interface Contact {
   /** The bot this reading is about. */
   id: number;
@@ -70,6 +89,8 @@ export class Bot {
   deathReason = '';
   /** 1 for the first bot knocked out, 2 for the second, and so on. */
   deathOrder = 0;
+  /** Seconds into the battle when it died. Still -1 if it is alive. */
+  deathAt = -1;
 
   controls: Controls = noControls();
 
@@ -91,6 +112,15 @@ export class Bot {
   damageDealt = 0;
   shotsFired = 0;
   shotsHit = 0;
+
+  /**
+   * Where the damage came from. A health bar going down tells you that you are
+   * losing; this tells you what is beating you, which is the part you can fix.
+   */
+  readonly damageBy: Record<DamageKind, number> = { shot: 0, wall: 0, ram: 0, other: 0 };
+
+  /** Total taken, which is not the same as 140 minus health once you are dead. */
+  damageTaken = 0;
 
   constructor(world: World, id: number, name: string, isPlayer: boolean, pos: Vec2, angle: number) {
     this.world = world;
@@ -204,15 +234,30 @@ export class Bot {
 
   // ---------------------------------------------------------------- damage
 
-  hurt(amount: number, reason: string) {
+  hurt(amount: number, kind: DamageKind, by = '') {
     if (!this.alive || amount <= 0) return;
     this.hp -= amount;
+    this.damageBy[kind] += amount;
+    this.damageTaken += amount;
     this.damageFlash = Math.min(1, this.damageFlash + amount / 20);
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
-      this.deathReason = reason;
+      this.deathReason = deathText(kind, by);
     }
+  }
+
+  /** The biggest single source of damage taken, for the standings and the bench. */
+  worstDamage(): { kind: DamageKind; amount: number } {
+    let kind: DamageKind = 'other';
+    let amount = 0;
+    for (const k of DAMAGE_KINDS) {
+      if (this.damageBy[k] > amount) {
+        amount = this.damageBy[k];
+        kind = k;
+      }
+    }
+    return { kind, amount };
   }
 
   /** Record a radar return. */

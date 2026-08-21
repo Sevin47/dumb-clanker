@@ -236,6 +236,27 @@ Measured, the difference is real: a bot gating its shot on the second one fires
 nearly twice as often at half the accuracy for the same damage. It earns its
 place only when the aiming happens somewhere else in the script from the firing.
 
+### Sweeping, or holding the beam
+
+A sweeping radar re-targets to whoever it last crossed. Holding the beam on one
+bot keeps you on that bot. The obvious move is to hold, and measured against the
+roster it is the worst of the three:
+
+| | wins | how stale the target reading is |
+| --- | --- | --- |
+| Sweep always | 94% | 0.35s |
+| Hold the beam always | 78% | **2.75s** |
+| Hold only inside 20m, sweep otherwise | 94% | 0.30s |
+
+Holding goes *blind*. `radar: how far to turn` aims at where they were, so once
+the beam arrives it stops, and it stays parked on an empty patch of floor while
+they walk away. You only find them again by luck.
+
+Sweeping and holding-when-close tie on wins, but holding when close takes
+**68 damage a battle against 79**. That is the version worth having: sweep to
+find people, hold the beam on anything inside 20 metres, because a bot that
+close is the one about to ram you or land a heavy round.
+
 ### Knowing where the walls are
 
 There are two wall sensors and the difference matters.

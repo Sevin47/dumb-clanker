@@ -22,6 +22,25 @@ import {
 
 const MAX_OPPONENTS = 5;
 
+/**
+ * Panes that scroll, and so have a position worth keeping.
+ *
+ * Every edit rebuilds the whole workshop, which throws away scroll positions
+ * and focus along with the markup. Placing a block near the bottom of a long
+ * script and being thrown back to the top for it is maddening, so the position
+ * is carried across the rebuild.
+ */
+const SCROLLERS = ['.pal-list', '.script-canvas', '.readout'];
+
+interface ViewState {
+  scroll: Array<[string, number]>;
+  focusId: string;
+  /** What was typed but not yet committed. The template would rebuild it stale. */
+  focusValue: string | null;
+  selStart: number | null;
+  selEnd: number | null;
+}
+
 export class Workshop {
   program: Program;
   /** Rival ids in the field, in order. The same bot may appear more than once. */
@@ -514,7 +533,48 @@ export class Workshop {
     this.render();
   }
 
+  /** Where the player was looking, so a rebuild can put them back. */
+  private captureView(): ViewState {
+    const scroll: Array<[string, number]> = [];
+    for (const sel of SCROLLERS) {
+      const el = this.root.querySelector(sel);
+      if (el && el.scrollTop > 0) scroll.push([sel, el.scrollTop]);
+    }
+    const active = document.activeElement as HTMLElement | null;
+    const inside = !!active && active.id && this.root.contains(active);
+    const field = inside && active instanceof HTMLInputElement ? active : null;
+    return {
+      scroll,
+      focusId: inside ? active!.id : '',
+      focusValue: field ? field.value : null,
+      selStart: field ? field.selectionStart : null,
+      selEnd: field ? field.selectionEnd : null,
+    };
+  }
+
+  private restoreView(v: ViewState) {
+    for (const [sel, top] of v.scroll) {
+      const el = this.root.querySelector(sel);
+      if (el) el.scrollTop = top;
+    }
+    if (!v.focusId) return;
+    const el = this.root.querySelector<HTMLElement>(`#${CSS.escape(v.focusId)}`);
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    // The name field commits on blur, so a rebuild mid-typing would otherwise
+    // throw away everything since the last commit.
+    if (el instanceof HTMLInputElement && v.focusValue !== null) el.value = v.focusValue;
+    if (el instanceof HTMLInputElement && v.selStart !== null) {
+      try {
+        el.setSelectionRange(v.selStart, v.selEnd ?? v.selStart);
+      } catch {
+        // Not every input type allows a selection range. Focus is the point.
+      }
+    }
+  }
+
   private render() {
+    const view = this.captureView();
     const blocks = countBlocks(this.program);
     this.root.innerHTML = `
       <div class="garage">
@@ -593,6 +653,7 @@ export class Workshop {
 
     this.wire();
     this.editor.wire(this.root);
+    this.restoreView(view);
   }
 
   private wire() {

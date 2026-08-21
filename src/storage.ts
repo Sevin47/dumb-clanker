@@ -259,23 +259,49 @@ export async function challengeLink(name: string, program: Program): Promise<str
   }
 }
 
+/** Why a pasted link could not be used, in words a player can act on. */
+export type ChallengeError = 'empty' | 'not-a-link' | 'unreadable';
+
+export interface DecodedChallenge {
+  name: string;
+  program: Program;
+}
+
 /**
- * Read a shared script out of the address bar. Runs through the same sanitiser
- * as an imported file, because a link is a stranger's data and gets no more
- * trust than a stranger's file.
+ * Pull a bot out of anything that might contain one: a whole URL, just the
+ * `#bot=...` part, or the bare code on its own. People paste all three.
+ *
+ * Runs through the same sanitiser as an imported file, because a link is a
+ * stranger's data and gets no more trust than a stranger's file.
  */
-export async function challengeFromUrl(): Promise<{ name: string; program: Program } | null> {
-  const match = /[#&]bot=([A-Za-z0-9_-]+)/.exec(location.hash);
-  if (!match) return null;
+export async function decodeChallenge(
+  text: string,
+): Promise<{ ok: DecodedChallenge } | { error: ChallengeError }> {
+  const trimmed = text.trim();
+  if (!trimmed) return { error: 'empty' };
+
+  const found = /[#&?]bot=([A-Za-z0-9_-]+)/.exec(trimmed);
+  // A bare code has no bot= in front of it, so accept that too, but only if it
+  // looks like one rather than like a sentence.
+  const code = found ? found[1] : /^[A-Za-z0-9_-]{24,}$/.test(trimmed) ? trimmed : null;
+  if (!code) return { error: 'not-a-link' };
+
   try {
-    const json = new TextDecoder().decode(await unsqueeze(fromBase64Url(match[1]), 'deflate-raw'));
+    const json = new TextDecoder().decode(await unsqueeze(fromBase64Url(code), 'deflate-raw'));
     const raw = JSON.parse(json) as { n?: unknown; p?: unknown };
     const program = cleanProgram(raw.p);
-    if (!program.stacks.length) return null;
-    return { name: typeof raw.n === 'string' ? raw.n.slice(0, 40) : 'A challenger', program };
+    if (!program.stacks.length) return { error: 'unreadable' };
+    return { ok: { name: typeof raw.n === 'string' ? raw.n.slice(0, 40) : 'A challenger', program } };
   } catch {
-    return null;
+    return { error: 'unreadable' };
   }
+}
+
+/** The same thing, read out of the address bar when the game is opened by link. */
+export async function challengeFromUrl(): Promise<DecodedChallenge | null> {
+  if (!location.hash.includes('bot=')) return null;
+  const result = await decodeChallenge(location.hash);
+  return 'ok' in result ? result.ok : null;
 }
 
 /** Take the script out of the address bar once it has been dealt with. */

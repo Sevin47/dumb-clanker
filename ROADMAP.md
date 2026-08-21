@@ -417,6 +417,17 @@ declaring the last one standing a winner the moment the battle starts. Measured
 that the `isPlayer` flag touches nothing in the simulation, 20 battles a side,
 so watching a fight gives the same result as being in one.
 
+**Pasted in rather than navigated to.** Reloading the game to add each bot was
+the friction, and a link is only data, so the decoder was pulled out of the
+address-bar path and given a box in the battle list. It takes a full URL, a bare
+`#bot=` fragment or the raw code, acts on the paste event so there is nothing to
+click, and names the three ways it can fail.
+
+Two cap bugs fell out of testing it: adding a rival counted only rivals against
+the five-opponent limit, so challengers could push the arena to seven bots and
+the six colours started repeating; and `say()` matched on message text, so
+showing the same message twice let the first timer cut the second one short.
+
 Rival scripts stay uncopyable. This is for player against player, which is a
 different thing.
 

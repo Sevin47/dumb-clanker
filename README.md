@@ -271,6 +271,12 @@ but they cannot read it. That is the same deal the built-in rivals get: you work
 out what a bot does by watching it, not by opening it. Their own script is left
 alone.
 
+**Or paste it straight in.** There is a box in the battle list: paste a link
+into it and the bot joins the arena on the spot, no reloading. It takes a whole
+URL, just the `#bot=...` part, or the bare code, and it acts on the paste itself
+so there is usually nothing to click. A link that is not a link, or one that
+arrived damaged, says which.
+
 You can keep up to five sent bots. Each one sits in the battle list and can be
 put in or left on the bench.
 

@@ -984,3 +984,31 @@ ul.benched .drop { margin-left: auto; }
     align-items: center;
   }
 }
+
+/* Paste a challenge link straight in, rather than reloading the game with it. */
+.pasterow {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.pasterow input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.pasterow input::placeholder { color: var(--muted); }
+.pasterow input:focus { outline: 2px solid var(--amber); outline-offset: -1px; }
+.pasterow button { flex: 0 0 auto; }
+
+@media (max-width: 940px) {
+  .pasterow input,
+  .pasterow button { min-height: 40px; }
+}

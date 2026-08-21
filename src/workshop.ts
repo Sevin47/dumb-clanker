@@ -6,6 +6,7 @@ import type { Entrant } from './match';
 import {
   MAX_CHALLENGERS,
   challengeLink,
+  decodeChallenge,
   exportScript,
   importScript,
   loadFile,
@@ -32,6 +33,7 @@ export class Workshop {
   private file: SaveFile;
   private storageBroken = false;
   private flash = '';
+  private flashToken = 0;
 
   /** Test bench state. One battle proves nothing, so this runs a stack of them. */
   private bench: BenchRun | null = null;
@@ -64,9 +66,12 @@ export class Workshop {
   }
 
   private say(msg: string) {
+    // Matching on the text was not enough: saying the same thing twice let the
+    // first timer cut the second message short. A token per call fixes it.
     this.flash = msg;
+    const token = ++this.flashToken;
     window.setTimeout(() => {
-      if (this.flash !== msg) return;
+      if (this.flashToken !== token) return;
       this.flash = '';
       if (this.root.classList.contains('active')) this.render();
     }, 2600);
@@ -168,8 +173,52 @@ export class Workshop {
    * rival's script is the one thing this game does not let you do, and a
    * friend's bot is a rival: you beat it by watching it, not by opening it.
    */
+  /**
+   * Take in a link the player pasted, rather than making them navigate to it.
+   * Reloading the game to add each bot was the friction; the link is just data
+   * and there is no reason it has to arrive through the address bar.
+   */
+  private async acceptPasted(text: string) {
+    if (this.file.challengers.length >= MAX_CHALLENGERS) {
+      this.say(`That is ${MAX_CHALLENGERS} bots already. Forget one first.`);
+      this.render();
+      return;
+    }
+    const result = await decodeChallenge(text);
+    if ('error' in result) {
+      this.say(
+        result.error === 'empty'
+          ? 'Paste a challenge link into the box first.'
+          : result.error === 'not-a-link'
+            ? 'That does not look like a challenge link.'
+            : 'That link is damaged and cannot be read.',
+      );
+      this.render();
+      return;
+    }
+    this.addChallenger(result.ok.name, result.ok.program);
+    const added = this.file.challengers[0];
+    this.say(
+      added.inField
+        ? `${added.name} is in the arena.`
+        : `${added.name} is on the bench. The arena is full.`,
+    );
+    this.render();
+  }
+
   addChallenger(name: string, program: Program) {
-    this.file.challengers.unshift({ id: uid('chal'), name, program, inField: true });
+    // Two bots called the same thing are impossible to tell apart in the field
+    // list or the kill feed, and pasting the same link twice is a normal thing
+    // to do when testing.
+    const taken = new Set(this.file.challengers.map((c) => c.name));
+    let unique = name;
+    for (let i = 2; taken.has(unique); i++) unique = `${name} ${i}`;
+
+    // Only put them straight in if the arena has room. Otherwise they go on the
+    // bench, which beats quietly making a seventh bot in a six bot arena where
+    // the colours start repeating.
+    const room = this.opponentCount() < MAX_OPPONENTS;
+    this.file.challengers.unshift({ id: uid('chal'), name: unique, program, inField: room });
     // Oldest out first. Five is the arena cap, so a sixth could never fight.
     this.file.challengers = this.file.challengers.slice(0, MAX_CHALLENGERS);
     this.persist();
@@ -186,6 +235,11 @@ export class Workshop {
   private toggleChallenger(id: string) {
     const c = this.file.challengers.find((x) => x.id === id);
     if (!c) return;
+    if (!c.inField && this.opponentCount() >= MAX_OPPONENTS) {
+      this.say('The arena is full. Take somebody out first.');
+      this.render();
+      return;
+    }
     c.inField = !c.inField;
     this.persist();
     this.render();
@@ -283,6 +337,11 @@ export class Workshop {
             .join('')}
           ${total === 0 ? '<li class="empty">Nobody yet</li>' : ''}
         </ol>
+        <div class="pasterow">
+          <input id="pastelink" type="text" placeholder="Paste a challenge link" spellcheck="false"
+            ${chals.length >= MAX_CHALLENGERS ? 'disabled' : ''} />
+          <button class="ghost small" id="pasteadd">Add bot</button>
+        </div>
         ${
           chals.length
             ? `<ul class="benched">${chals
@@ -531,6 +590,26 @@ export class Workshop {
     q<HTMLButtonElement>('[data-dropchal]').forEach((b) => {
       b.onclick = () => this.dropChallenger(b.dataset.dropchal!);
     });
+    const pasteInput = this.root.querySelector<HTMLInputElement>('#pastelink');
+    const pasteBtn = this.root.querySelector<HTMLButtonElement>('#pasteadd');
+    if (pasteInput && pasteBtn) {
+      const go = () => void this.acceptPasted(pasteInput.value);
+      pasteBtn.onclick = go;
+      pasteInput.onkeydown = (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          go();
+        }
+      };
+      // Pasting is the whole point, so act on it without a second click.
+      pasteInput.onpaste = (ev) => {
+        const text = ev.clipboardData?.getData('text') ?? '';
+        if (!text.trim()) return;
+        ev.preventDefault();
+        void this.acceptPasted(text);
+      };
+    }
+
     const joinBtn = this.root.querySelector<HTMLButtonElement>('[data-joinin]');
     if (joinBtn) {
       joinBtn.onclick = () => {
@@ -555,7 +634,12 @@ export class Workshop {
 
     q<HTMLButtonElement>('[data-add]').forEach((b) => {
       b.onclick = () => {
-        if (this.field.length >= MAX_OPPONENTS) return;
+        // Challengers take up arena slots too, so count them here as well.
+        if (this.opponentCount() >= MAX_OPPONENTS) {
+          this.say('The arena is full. Take somebody out first.');
+          this.render();
+          return;
+        }
         this.field.push(b.dataset.add!);
         this.persist();
         this.render();

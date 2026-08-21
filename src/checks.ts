@@ -367,6 +367,64 @@ export function checkBlocks(): CheckResult[] {
   }
 
   // ------------------------------------------------------------ typing
+  // ------------------------------------------------------------ sensing
+  //
+  // "clear space ahead of me" exists because "distance to the nearest wall"
+  // cannot tell the difference between driving at a wall and driving alongside
+  // one. These checks are mostly about proving that difference is real.
+  {
+    const m = scenario(idle(), { me: [10, 27, 180] });
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'clear space ahead measures to the wall it faces',
+      near(s.wall_ahead, 9, 0.3),
+      `10m from the west wall, nose on it: reads ${s.wall_ahead.toFixed(1)}m (hull is 1m to the nose, so 9m)`,
+    );
+  }
+  {
+    // The case the old sensor gets wrong: hugging a wall but driving along it.
+    const m = scenario(idle(), { me: [3, 27, 90] });
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'driving alongside a wall reads clear',
+      near(s.wall_distance, 3, 0.3) && s.wall_ahead > 20,
+      `nearest wall ${s.wall_distance.toFixed(1)}m but ${s.wall_ahead.toFixed(1)}m of road ahead`,
+    );
+  }
+  {
+    const m = scenario(idle(), { me: [1.2, 27, 180] });
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'reads about zero when the nose is on the wall',
+      s.wall_ahead < 0.5,
+      `reads ${s.wall_ahead.toFixed(2)}m with the hull against it`,
+    );
+  }
+  {
+    // Pointing at a corner: the answer is whichever wall the ray meets first.
+    const m = scenario(idle(), { me: [27, 10, 225] });
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'a diagonal takes the nearer of the two walls',
+      near(s.wall_ahead, 10 * Math.SQRT2 - 1, 0.4),
+      `10m south and 27m west of the walls, aimed between them: reads ${s.wall_ahead.toFixed(1)}m`,
+    );
+  }
+  {
+    const m = scenario(idle(), { me: [27, 27, 0] });
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'the middle of the arena reads clear both ways',
+      near(s.wall_distance, 27, 0.3) && near(s.wall_ahead, 26, 0.4),
+      `nearest ${s.wall_distance.toFixed(1)}m, ahead ${s.wall_ahead.toFixed(1)}m`,
+    );
+  }
+
   {
     const bad: string[] = [];
     for (const def of BLOCKS) {

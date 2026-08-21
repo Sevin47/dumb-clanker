@@ -84,7 +84,7 @@ The *starvation* warning I wanted alongside this is deliberately deferred. If
 Phase 2 lands, starvation stops being a thing that can happen, and building an
 elaborate warning for a bug that is about to be designed out is wasted work.
 
-### 1.6 Wall-ahead sensor (small, big gameplay payoff)
+### 1.6 Wall-ahead sensor — **done**
 
 `distance to the nearest wall` cannot tell "about to hit that" from "driving
 comfortably parallel to it". Add the one that can.
@@ -95,7 +95,24 @@ comfortably parallel to it". Add the one that can.
 - `src/checks.ts` — a check that drives at a known wall from a known distance and
   confirms the reading falls as expected.
 
-Wall avoidance drops from a 24 block spiral to a two block idea.
+Benched at 60 battles a side, two bots identical except the sensor, both
+turning away at 14 metres:
+
+| | nearest wall | clear ahead |
+| --- | --- | --- |
+| Won | 53% | **73%** |
+| Wall damage per battle | 0.9 | **0.1** |
+| Damage taken per battle | 127 | **73** |
+| Seconds alive | 83 | **155** |
+
+The payoff is not a smaller margin, which is what I expected when writing this.
+It is that the same margin costs far less. At 14 metres the omnidirectional
+sensor is true over about half the arena, so the bot spends its life turning
+away from walls it was never going to hit. The directional one only fires when
+the bot is actually pointed at something.
+
+Wallwise is rebuilt on it: 24 blocks down to 15, and the reverse-out-of-trouble
+branch and the `when I run into a wall` backstop are both gone as dead weight.
 
 ---
 

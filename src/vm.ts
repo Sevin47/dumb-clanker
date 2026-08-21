@@ -3,7 +3,32 @@ import type { Node, Program, Stack } from './program';
 import type { Bot } from './bot';
 import type { Match } from './match';
 import { ARENA_W, ARENA_H } from './match';
-import { GUN } from './spec';
+import { BOT, GUN } from './spec';
+
+/**
+ * How much clear floor is in front of the nose.
+ *
+ * A ray from the bot's centre along its heading, against the four walls of the
+ * arena. The slab method: for each axis, the ray reaches that wall at a known
+ * multiple of its direction, and the nearest positive one is the wall it would
+ * actually meet. Then take off the half-length of the hull, so the answer is
+ * the gap in front of the bot rather than the distance to its middle.
+ *
+ * No physics query needed. The arena is an axis-aligned box and always will be.
+ */
+function clearAhead(x: number, y: number, heading: number): number {
+  const dx = Math.cos(heading);
+  const dy = Math.sin(heading);
+
+  let t = Infinity;
+  if (dx > 1e-6) t = Math.min(t, (ARENA_W - x) / dx);
+  else if (dx < -1e-6) t = Math.min(t, -x / dx);
+  if (dy > 1e-6) t = Math.min(t, (ARENA_H - y) / dy);
+  else if (dy < -1e-6) t = Math.min(t, -y / dy);
+
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, t - BOT.hx);
+}
 
 /**
  * Runs one bot's Clank Script.
@@ -36,6 +61,7 @@ export interface Senses {
   my_health: number;
   my_speed: number;
   wall_distance: number;
+  wall_ahead: number;
   bots_left: number;
   time_left: number;
 }
@@ -206,6 +232,7 @@ export class ClankVM {
       my_health: b.healthPct,
       my_speed: b.speed,
       wall_distance: Math.max(0, wall),
+      wall_ahead: clearAhead(p.x, p.y, b.heading),
       bots_left: m.alive.length,
       time_left: m.timeLeft,
     };

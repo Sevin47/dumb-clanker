@@ -164,6 +164,24 @@ Nobody drives — the bots run their own programs. Everything is in the left pan
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
 | **Workshop** (`B`) | Back to the editor. |
 
+### Knowing where the walls are
+
+There are two wall sensors and the difference matters.
+
+`distance to the nearest wall` gives the closest edge in **any** direction. It
+cannot tell "about to hit that" from "driving safely alongside it", so a bot
+using it has to turn away whenever it is merely near a wall, which in a 54 metre
+arena is most of the time.
+
+`clear space ahead of me` gives the open floor in front of the nose, along the
+way the hull points, measured from the front of the hull so it reads 0 on
+contact. That is the one to test before driving forward.
+
+Same bot, same 14 metre margin, 60 battles each: the directional sensor wins 73%
+against the other one's 53%, takes 73 damage a battle against 127, and stays
+alive 155 seconds against 83. Not because it is safer, but because it stops the
+bot wasting the match turning away from walls it was never going to hit.
+
 ## Testing a bot properly
 
 One battle tells you almost nothing. Starting positions are random, an early

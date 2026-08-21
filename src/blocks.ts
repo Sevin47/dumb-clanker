@@ -125,7 +125,18 @@ export const SENSORS: SensorDef[] = [
   },
   { id: 'my_health', label: 'my health %', unit: 'percent', help: 'How much of you is left, 0 to 100.' },
   { id: 'my_speed', label: 'my speed', unit: 'speed', help: 'How fast you are actually moving, in metres per second. Top speed is 10.' },
-  { id: 'wall_distance', label: 'distance to the nearest wall', unit: 'distance', help: 'Metres to the closest edge of the arena.' },
+  {
+    id: 'wall_distance',
+    label: 'distance to the nearest wall',
+    unit: 'distance',
+    help: 'Metres to the closest edge of the arena, in any direction. It cannot tell you which wall, so a bot driving safely alongside one reads the same as a bot about to hit it.',
+  },
+  {
+    id: 'wall_ahead',
+    label: 'clear space ahead of me',
+    unit: 'distance',
+    help: 'Metres of open floor in front of the nose, along the way the hull points. Reads 0 when you are touching. This is the one to test before driving forward. Reversing, the wall that matters is behind you and this will not see it.',
+  },
   { id: 'bots_left', label: 'bots still alive', unit: 'count', help: 'How many bots are still fighting, including you.' },
   { id: 'time_left', label: 'seconds left in the battle', unit: 'time', help: 'Seconds remaining before the battle is decided on health.' },
 ];

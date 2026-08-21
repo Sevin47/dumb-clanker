@@ -69,15 +69,21 @@ export class Hud {
     c.fillRect(0, 40, this.w, 1);
 
     const me = m.player;
-    this.text('YOUR BOT', 8, 5, me.colors.light, 11, 700);
-    this.bar(8, 20, 150, 5, me.healthPct / 100, me.healthPct < 30 ? P.danger : me.colors.body);
-    this.text(`${Math.round(me.healthPct)}%`, 164, 18, P.text, 10, 700);
+    if (me) {
+      this.text('YOUR BOT', 8, 5, me.colors.light, 11, 700);
+      this.bar(8, 20, 150, 5, me.healthPct / 100, me.healthPct < 30 ? P.danger : me.colors.body);
+      this.text(`${Math.round(me.healthPct)}%`, 164, 18, P.text, 10, 700);
 
-    // Gun heat is the one number a script writer watches constantly.
-    const heat = Math.min(1, me.gunHeat / GUN.heat(GUN.maxPower));
-    this.text('GUN', 8, 29, P.textDim, 8, 600);
-    this.bar(30, 30, 128, 3, heat, heat > 0 ? P.hot : P.good);
-    if (me.gunHeat <= 0) this.text('READY', 164, 28, P.good, 8, 700);
+      // Gun heat is the one number a script writer watches constantly.
+      const heat = Math.min(1, me.gunHeat / GUN.heat(GUN.maxPower));
+      this.text('GUN', 8, 29, P.textDim, 8, 600);
+      this.bar(30, 30, 128, 3, heat, heat > 0 ? P.hot : P.good);
+      if (me.gunHeat <= 0) this.text('READY', 164, 28, P.good, 8, 700);
+    } else {
+      // Watching two other bots go at it. There is no "your bot" to report on.
+      this.text('WATCHING', 8, 5, P.textDim, 11, 700);
+      this.text('you are not in this one', 8, 22, P.muted, 9, 600);
+    }
 
     const t = Math.max(0, Math.ceil(m.timeLeft));
     const label = `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`;

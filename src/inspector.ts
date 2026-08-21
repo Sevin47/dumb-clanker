@@ -196,6 +196,7 @@ export class Inspector {
     // editor's copy. Render the clone the interpreter is actually executing.
     const view = new ScriptEditor(vm.program, () => {});
     this.scriptHost.innerHTML = view.staticCanvas();
+    delete this.scriptHost.dataset.watching;
     this.nodes.clear();
     this.profs.clear();
     for (const el of this.scriptHost.querySelectorAll<HTMLElement>('[data-node]')) {
@@ -219,12 +220,21 @@ export class Inspector {
   }
 
   update(m: Match, now: number) {
-    const vm = m.vms.get(m.player);
+    // No player means the player is watching two other bots. There is no script
+    // to show, and the one thing this panel must never do is fall back to
+    // somebody else's: a challenger's program is sealed, and this is the only
+    // place in the game that renders a program at all.
+    const me = m.player;
+    if (!me) {
+      this.showWatching();
+      return;
+    }
+    const vm = m.vms.get(me);
     if (!vm) return;
     if (this.builtFor !== vm) this.build(vm);
 
     // Move the highlight. One class swap, not a re-render.
-    const live = m.player.alive && m.phase === 'fighting' ? vm.activeBlockId : null;
+    const live = me.alive && m.phase === 'fighting' ? vm.activeBlockId : null;
     if (live !== this.lastLive) {
       if (this.lastLive) this.nodes.get(this.lastLive)?.classList.remove('running');
       if (live) {
@@ -241,7 +251,7 @@ export class Inspector {
       this.paintWatch(m, vm);
     }
 
-    const status = !m.player.alive
+    const status = !me.alive
       ? 'knocked out'
       : m.phase === 'countdown'
         ? 'starting'
@@ -257,6 +267,23 @@ export class Inspector {
       this.noteEl.textContent = note;
       this.noteEl.classList.toggle('shown', !!note);
     }
+  }
+
+  /** Spectating. Blank the panel rather than showing whoever happens to be first. */
+  private showWatching() {
+    if (this.builtFor !== null || this.scriptHost.dataset.watching !== '1') {
+      this.scriptHost.innerHTML =
+        '<p class="ins-empty">You are watching this one. Only your own script is ever shown here, so a bot somebody sent you stays sealed.</p>';
+      this.scriptHost.dataset.watching = '1';
+      this.nodes.clear();
+      this.profs.clear();
+      this.conditionIds.clear();
+      this.builtFor = null;
+      this.lastLive = null;
+    }
+    if (this.statusEl.textContent !== 'watching') this.statusEl.textContent = 'watching';
+    for (const [, cell] of this.senseCells) if (cell.textContent !== '—') cell.textContent = '—';
+    for (const [, cell] of this.chanCells) if (cell.textContent !== '—') cell.textContent = '—';
   }
 
   /** Flag whole stacks that have never fired — almost always the real bug. */
@@ -279,6 +306,7 @@ export class Inspector {
    */
   private paintWatch(m: Match, vm: ClankVM) {
     const bot = m.player;
+    if (!bot) return;
     const s = vm.senses(m) as unknown as Record<string, number>;
     for (const sen of SENSORS) {
       const cell = this.senseCells.get(sen.id);

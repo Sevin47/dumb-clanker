@@ -37,11 +37,27 @@ export interface SaveFile {
    */
   beaten: string[];
   /**
-   * A bot somebody sent by link. It lives here and nowhere else: it never
-   * touches the editor, so its script cannot be read, exactly like a rival's.
+   * Bots people have sent by link. They live here and nowhere else: they never
+   * touch the editor, so their scripts cannot be read, exactly like a rival's.
    */
-  challenger: { name: string; program: Program } | null;
+  challengers: Challenger[];
+  /**
+   * Whether the player's own bot is in the arena. Off means watching, which is
+   * how two challengers fight each other.
+   */
+  joinIn: boolean;
 }
+
+export interface Challenger {
+  id: string;
+  name: string;
+  program: Program;
+  /** In the arena for the next battle. */
+  inField: boolean;
+}
+
+/** Five is the arena cap, so more than that could never all fight anyway. */
+export const MAX_CHALLENGERS = 5;
 
 const emptyFile = (): SaveFile => ({
   version: 1,
@@ -49,7 +65,8 @@ const emptyFile = (): SaveFile => ({
   current: starterProgram(),
   library: [],
   beaten: [],
-  challenger: null,
+  challengers: [],
+  joinIn: true,
   field: ['lamppost'],
 });
 
@@ -99,12 +116,26 @@ export function cleanProgram(raw: unknown): Program {
 
 // ---------------------------------------------------------------- the file
 
-function readChallenger(raw: unknown): SaveFile['challenger'] {
+function readOne(raw: unknown): Challenger | null {
   if (!raw || typeof raw !== 'object') return null;
-  const c = raw as { name?: unknown; program?: unknown };
+  const c = raw as { id?: unknown; name?: unknown; program?: unknown; inField?: unknown };
   const program = cleanProgram(c.program);
   if (!program.stacks.length) return null;
-  return { name: typeof c.name === 'string' ? c.name.slice(0, 40) : 'A challenger', program };
+  return {
+    id: typeof c.id === 'string' ? c.id : uid('chal'),
+    name: typeof c.name === 'string' ? c.name.slice(0, 40) : 'A challenger',
+    program,
+    inField: c.inField !== false,
+  };
+}
+
+/** Reads the list, and carries over a save from when there was only one slot. */
+function readChallengers(raw: Partial<SaveFile> & { challenger?: unknown }): Challenger[] {
+  if (Array.isArray(raw.challengers)) {
+    return raw.challengers.map(readOne).filter((c): c is Challenger => !!c).slice(0, MAX_CHALLENGERS);
+  }
+  const single = readOne(raw.challenger);
+  return single ? [single] : [];
 }
 
 export function loadFile(): SaveFile {
@@ -133,7 +164,8 @@ export function loadFile(): SaveFile {
       beaten: Array.isArray(raw.beaten)
         ? raw.beaten.filter((b) => typeof b === 'string')
         : [...LADDER],
-      challenger: readChallenger(raw.challenger),
+      challengers: readChallengers(raw),
+      joinIn: raw.joinIn !== false,
     };
   } catch {
     // Corrupt or unreadable storage should never stop the game opening.

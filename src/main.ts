@@ -122,7 +122,9 @@ function frame(now: number) {
     // Climb the ladder. Counted once, the moment the battle is decided.
     if (!resultCounted && match.phase === 'over') {
       resultCounted = true;
-      if (match.result?.winner === match.player) workshop.recordWin();
+      // Only a battle you were actually in can climb the ladder.
+      const me = match.player;
+      if (me && match.result?.winner === me) workshop.recordWin();
     }
 
     if (pressed('c')) {

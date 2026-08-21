@@ -3,7 +3,15 @@ import { DAMAGE_KINDS, DAMAGE_LABEL } from './bot';
 import { ScriptEditor } from './editor';
 import { LADDER, cloneProgram, countBlocks, rivalById, rivalsInOrder, starterProgram, uid, type Program } from './program';
 import type { Entrant } from './match';
-import { challengeLink, exportScript, importScript, loadFile, saveFile, type SaveFile } from './storage';
+import {
+  MAX_CHALLENGERS,
+  challengeLink,
+  exportScript,
+  importScript,
+  loadFile,
+  saveFile,
+  type SaveFile,
+} from './storage';
 
 /**
  * The workshop. There is no bot to build any more — everyone fights the same
@@ -161,24 +169,39 @@ export class Workshop {
    * friend's bot is a rival: you beat it by watching it, not by opening it.
    */
   addChallenger(name: string, program: Program) {
-    this.file.challenger = { name, program };
+    this.file.challengers.unshift({ id: uid('chal'), name, program, inField: true });
+    // Oldest out first. Five is the arena cap, so a sixth could never fight.
+    this.file.challengers = this.file.challengers.slice(0, MAX_CHALLENGERS);
     this.persist();
     this.pane = 'battle';
     this.render();
   }
 
-  hasChallenger(): boolean {
-    return !!this.file.challenger;
-  }
-
-  challengerName(): string {
-    return this.file.challenger?.name ?? '';
-  }
-
-  private dropChallenger() {
-    this.file.challenger = null;
+  private dropChallenger(id: string) {
+    this.file.challengers = this.file.challengers.filter((c) => c.id !== id);
     this.persist();
     this.render();
+  }
+
+  private toggleChallenger(id: string) {
+    const c = this.file.challengers.find((x) => x.id === id);
+    if (!c) return;
+    c.inField = !c.inField;
+    this.persist();
+    this.render();
+  }
+
+  /** How many bots are lined up besides the player. */
+  private opponentCount(): number {
+    return this.field.length + this.file.challengers.filter((c) => c.inField).length;
+  }
+
+  /**
+   * Whether there is a battle to run at all. One bot alone is a practice run,
+   * which is a perfectly good thing to want.
+   */
+  private canFight(): boolean {
+    return this.file.joinIn || this.opponentCount() >= 2;
   }
 
   /**
@@ -198,17 +221,19 @@ export class Workshop {
   /** Build the entrant list: you first, then the field. */
   entrants(): Entrant[] {
     const counts: Record<string, number> = {};
-    const list: Entrant[] = [
-      { name: 'You', program: cloneProgram(this.program), isPlayer: true },
-    ];
+    // Sitting out is how two challengers fight each other.
+    const list: Entrant[] = this.file.joinIn
+      ? [{ name: 'You', program: cloneProgram(this.program), isPlayer: true }]
+      : [];
     for (const id of this.field) {
       const r = rivalById(id);
       counts[id] = (counts[id] ?? 0) + 1;
       const suffix = this.field.filter((f) => f === id).length > 1 ? ` ${counts[id]}` : '';
       list.push({ name: r.name + suffix, program: r.program(), isPlayer: false });
     }
-    const c = this.file.challenger;
-    if (c) list.push({ name: c.name, program: cloneProgram(c.program), isPlayer: false });
+    for (const c of this.file.challengers) {
+      if (c.inField) list.push({ name: c.name, program: cloneProgram(c.program), isPlayer: false });
+    }
     return list;
   }
 
@@ -221,32 +246,55 @@ export class Workshop {
       )
       .join('');
 
-    const challenger = this.file.challenger;
-    const full = this.field.length + (challenger ? 1 : 0) >= MAX_OPPONENTS;
+    const chals = this.file.challengers;
+    const inField = chals.filter((c) => c.inField);
+    const full = this.opponentCount() >= MAX_OPPONENTS;
     const open = this.unlocked();
     const beaten = new Set(this.file.beaten);
     const next = rivalsInOrder().find((r) => !beaten.has(r.id));
+    const total = this.opponentCount() + (this.file.joinIn ? 1 : 0);
 
     return `
       <section class="card">
         <h2>The battle</h2>
-        <p class="explain">You against ${this.field.length || 'nobody'}${
-          this.field.length ? ` other bot${this.field.length > 1 ? 's' : ''}` : ''
-        }. The same one can go in twice.</p>
+        <p class="explain">${
+          total === 0
+            ? 'Nobody in the arena yet.'
+            : total === 1
+              ? 'One bot alone. A practice run: no opponents, full three minutes, good for watching how your movement behaves.'
+              : `${total} bots in the arena.`
+        }</p>
         <ol class="field">
-          <li class="you"><span class="dot d0"></span>You</li>
-          ${rows || (challenger ? '' : '<li class="empty">Nobody else yet</li>')}
-          ${
-            challenger
-              ? `<li class="challenger"><span class="dot d5"></span>${escapeHtml(challenger.name)}
+          <li class="you ${this.file.joinIn ? '' : 'out'}">
+            <span class="dot d0"></span>You
+            ${this.file.joinIn ? '' : '<i class="sitting">sitting out</i>'}
+            <button class="drop" data-joinin="1" title="${
+              this.file.joinIn ? 'Sit this one out and watch' : 'Put your bot back in'
+            }">${this.file.joinIn ? '&minus;' : '+'}</button>
+          </li>
+          ${rows}
+          ${inField
+            .map(
+              (c) =>
+                `<li class="challenger"><span class="dot d5"></span>${escapeHtml(c.name)}
                    <i>sent to you</i>
-                   <button class="drop" data-dropchallenger="1" title="Take them out of the battle">&times;</button></li>`
-              : ''
-          }
+                   <button class="drop" data-togglechal="${c.id}" title="Take them out of the battle">&times;</button></li>`,
+            )
+            .join('')}
+          ${total === 0 ? '<li class="empty">Nobody yet</li>' : ''}
         </ol>
         ${
-          challenger
-            ? '<p class="explain">Their script is sealed, the same as any rival. Work out what it does by watching it.</p>'
+          chals.length
+            ? `<ul class="benched">${chals
+                .filter((c) => !c.inField)
+                .map(
+                  (c) =>
+                    `<li><button class="add" data-togglechal="${c.id}" ${full ? 'disabled' : ''}>+</button>
+                       ${escapeHtml(c.name)} <i>sent to you</i>
+                       <button class="drop" data-dropchal="${c.id}" title="Forget this bot">&times;</button></li>`,
+                )
+                .join('')}</ul>
+               <p class="explain">A bot somebody sent you is sealed, the same as a rival. Work out what it does by watching it. Sit yourself out and two of them will fight each other.</p>`
             : ''
         }
         <ul class="ladder">
@@ -427,8 +475,16 @@ export class Workshop {
             ${this.libraryCard()}
             ${this.battleCard()}
             ${this.benchCard()}
-            <button id="fight" ${this.field.length === 0 ? 'disabled' : ''}>
-              ${this.field.length === 0 ? 'Add an opponent' : 'Fight'}</button>
+            <button id="fight" ${this.canFight() ? '' : 'disabled'}>
+              ${
+                this.canFight()
+                  ? this.file.joinIn
+                    ? this.opponentCount() === 0
+                      ? 'Practice alone'
+                      : 'Fight'
+                    : 'Watch them fight'
+                  : 'Add two bots, or join in'
+              }</button>
             <p class="keys">Nobody drives. The script does.</p>
           </aside>
         </div>
@@ -469,8 +525,20 @@ export class Workshop {
       };
     }
 
-    const dropC = this.root.querySelector<HTMLButtonElement>('[data-dropchallenger]');
-    if (dropC) dropC.onclick = () => this.dropChallenger();
+    q<HTMLButtonElement>('[data-togglechal]').forEach((b) => {
+      b.onclick = () => this.toggleChallenger(b.dataset.togglechal!);
+    });
+    q<HTMLButtonElement>('[data-dropchal]').forEach((b) => {
+      b.onclick = () => this.dropChallenger(b.dataset.dropchal!);
+    });
+    const joinBtn = this.root.querySelector<HTMLButtonElement>('[data-joinin]');
+    if (joinBtn) {
+      joinBtn.onclick = () => {
+        this.file.joinIn = !this.file.joinIn;
+        this.persist();
+        this.render();
+      };
+    }
 
     q<HTMLButtonElement>('[data-bench]').forEach((b) => {
       b.onclick = () => this.startBench(Number(b.dataset.bench));
@@ -548,7 +616,7 @@ export class Workshop {
     });
 
     this.root.querySelector<HTMLButtonElement>('#fight')!.onclick = () => {
-      if (this.field.length === 0) return;
+      if (!this.canFight()) return;
       this.onFight(this.entrants());
     };
   }

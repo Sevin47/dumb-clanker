@@ -914,3 +914,73 @@ ul.ladder button.add {
 }
 
 .dot.d5 { background: #b07fd4; }
+
+.ins-empty {
+  margin: 0;
+  padding: 18px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Challengers on the bench, waiting to be put in. */
+ul.benched {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+ul.benched li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+ul.benched i,
+.field li i.sitting {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+ul.benched button.add {
+  flex: 0 0 auto;
+  width: 22px;
+  padding: 2px 0;
+  text-align: center;
+}
+
+ul.benched .drop { margin-left: auto; }
+
+.field li.you.out { color: var(--muted); }
+.field li.you.out .dot { opacity: 0.35; }
+
+@media (max-width: 940px) {
+  ul.benched button.add {
+    width: 44px;
+    min-height: 44px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 940px) {
+  /* Every remove control on the battle and script lists is a thumb target. */
+  .drop {
+    width: 44px;
+    min-height: 44px;
+    font-size: 18px;
+  }
+
+  .field li,
+  ul.benched li,
+  ul.library li {
+    align-items: center;
+  }
+}

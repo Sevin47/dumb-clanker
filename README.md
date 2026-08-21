@@ -269,9 +269,27 @@ Whoever opens the link is asked whether to put your bot **in their arena**. It
 goes into their battle list and never into their editor, so they can fight it
 but they cannot read it. That is the same deal the built-in rivals get: you work
 out what a bot does by watching it, not by opening it. Their own script is left
-alone, and they can drop your bot out of the field whenever they like.
+alone.
+
+You can keep up to five sent bots. Each one sits in the battle list and can be
+put in or left on the bench.
 
 Beating a challenger does not climb the ladder. That is for the roster.
+
+## Watching, and practising alone
+
+The **You** row in the battle list has a button that takes your own bot out.
+
+**Sit yourself out** and the bots that are left fight each other. That is how you
+run two bots somebody sent you against each other, with nobody of yours in the
+way. While you are watching, the script panel stays empty and says so: the only
+program this game ever renders is your own, so a sealed bot stays sealed even
+when it is the only thing on screen.
+
+**Leave yourself in with nobody else** and you get a practice run. One bot, an
+empty arena, the full three minutes, and no opponents to interrupt. It is the
+right way to watch how your movement actually behaves, whether the wall margin
+is doing what you think, and where the bot spends its time.
 
 ## Testing a bot properly
 

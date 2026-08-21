@@ -93,8 +93,19 @@ export class Match {
    */
   readonly headless: boolean;
 
-  get player(): Bot {
-    return this.bots.find((b) => b.isPlayer) ?? this.bots[0];
+  /**
+   * Null when the player is only watching. It used to fall back to the first
+   * bot, which was a quiet way of handing a challenger's script to the
+   * inspector, so everything that wants "the player" now has to say what it
+   * does when there isn't one.
+   */
+  get player(): Bot | null {
+    return this.bots.find((b) => b.isPlayer) ?? null;
+  }
+
+  /** A single bot on its own is a test rig, not a battle. */
+  get isPractice(): boolean {
+    return this.bots.length === 1;
   }
 
   get alive(): Bot[] {
@@ -465,7 +476,11 @@ export class Match {
     if (this.phase === 'over') return;
     this.noteDeaths();
     const alive = this.alive;
-    if (alive.length > 1 && this.timeLeft > 0) return;
+    if (this.isPractice) {
+      // Being the only one left is the normal state here, so run the clock out
+      // rather than declaring a winner the moment the battle starts.
+      if (alive.length > 0 && this.timeLeft > 0) return;
+    } else if (alive.length > 1 && this.timeLeft > 0) return;
 
     const standings = [...this.bots].sort((a, b) => {
       if (a.alive !== b.alive) return a.alive ? -1 : 1;
@@ -473,8 +488,11 @@ export class Match {
       return b.deathOrder - a.deathOrder;
     });
     const winner = standings[0]?.alive ? standings[0] : null;
-    const reason =
-      this.timeLeft <= 0
+    const reason = this.isPractice
+      ? this.timeLeft <= 0
+        ? 'practice run over'
+        : 'you wrecked yourself'
+      : this.timeLeft <= 0
         ? 'time ran out'
         : winner
           ? winner.isPlayer

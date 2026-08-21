@@ -405,6 +405,18 @@ and not opened. Verified from a clean profile: the editor is untouched, and the
 challenger's blocks appear nowhere in the script canvas, the battle card or the
 arena inspector.
 
+**Extended again.** Up to five sent bots are kept, each benchable, and the
+player can take their own bot out of the arena so two of them fight each other.
+`Match.player` became nullable to make that safe: it used to fall back to the
+first bot, which would have handed the inspector a challenger's program the
+moment the player sat out. Everything wanting "the player" now has to say what
+it does when there isn't one, and the inspector's answer is to render nothing.
+
+A single bot alone is a practice run: it holds the clock open instead of
+declaring the last one standing a winner the moment the battle starts. Measured
+that the `isPlayer` flag touches nothing in the simulation, 20 battles a side,
+so watching a fight gives the same result as being in one.
+
 Rival scripts stay uncopyable. This is for player against player, which is a
 different thing.
 

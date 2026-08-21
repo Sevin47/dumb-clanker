@@ -443,6 +443,99 @@ export function checkBlocks(): CheckResult[] {
     );
   }
 
+  // ------------------------------------------------ motion that does not wait
+  {
+    const after = n('fire', { n: 1 });
+    const m = scenario(prog([n('drive_start', { dir: 'forward' }), after, n('stop', { n: 9 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.05);
+    add(
+      'Moving',
+      'start driving does not hold the script up',
+      (vm.hits.get(after.id) ?? 0) > 0,
+      'the next block ran within a tick',
+    );
+  }
+  {
+    // No duration on it: the throttle stays set until something else changes it.
+    const m = scenario(prog([n('drive_start', { dir: 'forward' }), n('forever', {}, [n('fire', { n: 0.5 })])]), {
+      me: [10, 27, 0],
+    });
+    const from = { ...m.bots[0].position };
+    run(m, 2);
+    add(
+      'Moving',
+      'start driving keeps driving with no duration given',
+      dist(m.bots[0].position, from) > 8,
+      `travelled ${dist(m.bots[0].position, from).toFixed(1)}m over 2s with no drive duration anywhere`,
+    );
+  }
+  {
+    const after = n('fire', { n: 1 });
+    // Deliberately no "stop" on the end: stop is a motion block, and a motion
+    // block taking the wheel cancels a standing heading order.
+    const m = scenario(prog([n('turn_body_start', { dir: 'right', n: 90 }), after, n('forever', {}, [n('fire', { n: 0.5 })])]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.05);
+    const moved = (vm.hits.get(after.id) ?? 0) > 0;
+    run(m, 3);
+    const turned = Math.abs(wrap(deg(m.bots[0].heading)));
+    add(
+      'Moving',
+      'start turning hull does not wait, and still arrives',
+      moved && near(turned, 90, 8),
+      `next block ran at once, hull settled ${turned.toFixed(0)} degrees round`,
+    );
+  }
+  {
+    // The point of the pair: throttle and steering are separate orders, so a
+    // bot can do both at once and still come round the loop every tick.
+    const m = scenario(
+      prog([
+        n('drive_start', { dir: 'forward' }),
+        n('turn_body_start', { dir: 'right', n: 90 }),
+        n('forever', {}, [n('fire', { n: 0.5 })]),
+      ]),
+      { me: [27, 27, 0] },
+    );
+    const from = { ...m.bots[0].position };
+    run(m, 2);
+    const turned = Math.abs(wrap(deg(m.bots[0].heading)));
+    add(
+      'Moving',
+      'driving and turning can be ordered together',
+      dist(m.bots[0].position, from) > 5 && near(turned, 90, 10),
+      `moved ${dist(m.bots[0].position, from).toFixed(1)}m while turning ${turned.toFixed(0)} degrees`,
+    );
+  }
+  {
+    const m = scenario(prog([n('turn_body_start', { dir: 'right', n: 90 }), n('forever', {}, [n('fire', { n: 0.5 })])]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.05);
+    const early = vm.senses(m).hull_remaining;
+    run(m, 3);
+    add(
+      'Sensing',
+      'hull turn still to go counts down',
+      near(early, 90, 12) && vm.senses(m).hull_remaining < 5,
+      `reads ${early.toFixed(0)} a tick after ordering 90, then ${vm.senses(m).hull_remaining.toFixed(1)} once settled`,
+    );
+  }
+
+  {
+    // Worth pinning down, because it is surprising: a standing heading order is
+    // cancelled by any motion block that takes the wheel, "stop" included.
+    const m = scenario(prog([n('turn_body_start', { dir: 'right', n: 90 }), n('stop', { n: 9 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 1.5);
+    add(
+      'Moving',
+      'a motion block cancels a standing heading order',
+      vm.senses(m).hull_remaining === 0 && Math.abs(deg(m.bots[0].heading)) < 8,
+      'stop moving took the wheel, so the hull never turned',
+    );
+  }
+
   // --------------------------------------------------- orders still running
   {
     const m = scenario(prog([n('turret_start', { dir: 'right', n: 120 }), n('stop', { n: 5 })]));

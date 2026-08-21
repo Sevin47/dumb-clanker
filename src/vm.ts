@@ -63,6 +63,7 @@ export interface Senses {
   /** How much of the turn you last commanded has not happened yet. */
   turret_remaining: number;
   radar_remaining: number;
+  hull_remaining: number;
   wall_distance: number;
   wall_ahead: number;
   bots_left: number;
@@ -116,6 +117,12 @@ export class ClankVM {
   private radarSpin = 0;
   private radarTarget: number | null = null;
   private turretTarget: number | null = null;
+  /**
+   * A hull heading to hold, set by "start turning hull" and kept until some
+   * other motion block takes the wheel. The blocking turn keeps its target on
+   * its own action instead, because it owns the bot until it arrives.
+   */
+  private headingTarget: number | null = null;
 
   private prevHealthHat: Record<string, boolean> = {};
 
@@ -137,6 +144,7 @@ export class ClankVM {
       turretTarget: this.turretTarget,
       radarSpin: this.radarSpin,
       radarTarget: this.radarTarget,
+      headingTarget: this.headingTarget,
     };
   }
 
@@ -182,6 +190,7 @@ export class ClankVM {
     this.radarSpin = 0;
     this.radarTarget = null;
     this.turretTarget = null;
+    this.headingTarget = null;
     this.prevHealthHat = {};
     this.activeBlockId = null;
     this.note = '';
@@ -244,6 +253,8 @@ export class ClankVM {
         this.radarSpin !== 0 || this.radarTarget === null
           ? 0
           : Math.abs(deg(wrap(this.radarTarget - b.radar))),
+      hull_remaining:
+        this.headingTarget === null ? 0 : Math.abs(deg(wrap(this.headingTarget - b.heading))),
       wall_distance: Math.max(0, wall),
       wall_ahead: clearAhead(p.x, p.y, b.heading),
       bots_left: m.alive.length,
@@ -316,15 +327,32 @@ export class ClankVM {
     switch (op) {
       // --- motion channel ---
       case 'drive':
+        this.headingTarget = null;
         this.throttle = String(node.args.dir) === 'backward' ? -1 : 1;
         this.turn = 0;
         return base;
+
+      // The non-blocking pair. Setting the throttle and setting a heading are
+      // separate orders that compose, so a plan can drive and turn at once and
+      // still come back round the loop every tick to look at the world.
+      case 'drive_start':
+        this.throttle = String(node.args.dir) === 'backward' ? -1 : 1;
+        return null;
+      case 'turn_body_start': {
+        const amount = clampTurn(this.val(node, 'n', s));
+        const sign = String(node.args.dir) === 'left' ? -1 : 1;
+        this.headingTarget = b.heading + (sign * amount * Math.PI) / 180;
+        return null;
+      }
+
       case 'charge':
       case 'retreat':
       case 'stop':
       case 'strafe':
+        this.headingTarget = null;
         return { ...base, dir: String(node.args.dir ?? 'left') };
       case 'face_target':
+        this.headingTarget = null;
         return { ...base, endsAt: this.clock + 2.5 };
       case 'turn_body': {
         // Aim at an absolute heading rather than counting degrees as they go by.
@@ -334,6 +362,7 @@ export class ClankVM {
         // steers a turn with no arithmetic blocks in the language.
         const amount = clampTurn(this.val(node, 'n', s));
         const sign = String(node.args.dir) === 'left' ? -1 : 1;
+        this.headingTarget = null;
         return {
           op,
           headingTarget: b.heading + (sign * amount * Math.PI) / 180,
@@ -455,6 +484,11 @@ export class ClankVM {
         default:
           break;
       }
+    }
+
+    // Nothing is steering this tick, so hold whatever heading was last ordered.
+    if (!a && this.headingTarget !== null) {
+      this.turn = settleOn(wrap(this.headingTarget - b.heading));
     }
 
     const c = b.controls;

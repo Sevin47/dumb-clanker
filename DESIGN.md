@@ -135,6 +135,30 @@ if [how far my turret is off target] is less than [5]
 Crucially each turn block corrects **once**. A moving target needs re-aiming
 every lap, which is exactly the work a Robocode player does by hand.
 
+#### Where the rule is bent, and why it stays bent
+
+Four movement blocks break it: `drive at the target`, `back away from the
+target`, `circle the target` and `point hull at the target` all re-steer off the
+target every tick for as long as they run. They sense and they act.
+
+The bend has a real cost. A bot cannot escape a wall and circle in the same lap,
+because circling re-aims off the target and throws away the heading the escape
+just set. That is not hypothetical: it cost a rebuild of Wallwise to find.
+
+The rule is nevertheless **restated rather than enforced**: it governs
+*reporters and the turret*, which is where the interesting decisions live. The
+movement blocks stay as they are.
+
+Two reasons. Steering a hull toward a bearing without arithmetic needs a
+feedback loop, and the language has no variables to hold one, so a "dumb"
+`circle the target` would be a block that cannot do its own job. And every rival
+plus every saved script leans on the current behaviour; this session has already
+demonstrated once, with measurements, what changing a load-bearing default does
+to a corpus of scripts.
+
+What the player is owed instead is honesty. The help text on those four says
+plainly that they keep steering, so nobody has to discover it by losing.
+
 ### Safety nets, because the player is not a programmer
 - A `forever` loop yields one tick per lap. Without that, a loop of instant
   blocks would burn the whole step budget every frame.

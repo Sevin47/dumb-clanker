@@ -121,7 +121,7 @@ branch and the `when I run into a wall` backstop are both gone as dead weight.
 This is the one that matters and the one that can go wrong. Do it while the
 script corpus is still small.
 
-### 2.1 Settle the sense-and-act rule first (design, no code)
+### 2.1 Settle the sense-and-act rule — **done: restated, not enforced**
 
 `drive at the target`, `back away from the target`, `circle the target` and
 `point hull at the target` all sense *and* act. They re-steer off the target
@@ -129,13 +129,21 @@ every tick. The stated rule is already bent, and the bend has a cost: a bot
 cannot escape a wall and circle in the same lap, because circling re-aims off the
 target and throws away the heading the escape just set.
 
-Pick one before writing any VM code, because it decides what these blocks become:
+**Decided: restate.** The rule governs reporters and the turret, which is where
+the interesting decisions live. The four movement blocks stay as they are, and
+their help text now says plainly that they keep steering, so nobody has to lose
+a battle to find out.
 
-- **Restate the rule** as applying to reporters only, and keep the steering
-  blocks as they are.
-- **Make them dumber.** They set a heading once and drive, and the player repeats
-  them to track. More honest, more blocks to write, more in the spirit of the
-  language.
+Two reasons. Steering a hull onto a bearing without arithmetic needs a feedback
+loop and the language has no variables to hold one, so a "dumb" `circle the
+target` would be a block that cannot do its own job. And this session has
+already demonstrated once, with measurements, what changing a load-bearing
+default does to a corpus of scripts.
+
+What the player gets instead is the ability to **build** the steering blocks out
+of parts, which arrived with 2.2b below: `start turning hull right by
+[hull: how far to turn] + 70` is `circle the target`, assembled by hand, and
+unlike the built-in it does not fight a wall escape.
 
 ### 2.2 Route A — **done, but not the way this said**
 
@@ -246,7 +254,18 @@ whether a commanded swing landed. Kept because it is four lines, purely
 additive, and it is the only way to ask that question, but the help text now
 says plainly that the other sensor is usually the right gate.
 
-### 2.3 Route B: three concurrent stacks (large, only if still wanted)
+### 2.3 Route B: three concurrent stacks — **not done, deliberately**
+
+**Not built, and the evidence says it should not be.** See 2.2b: a standing plan
+written entirely out of non-blocking orders already runs every single tick, with
+the plan taking 100% of executions and roughly 50,000 block runs per battle
+against Wallwise's previous 1,958. There is nothing left for concurrency to fix,
+and Robocode reached the same place with one thread twenty years ago.
+
+The migration cost below is the reason to care. It buys a property we now get
+for free.
+
+The original design is kept below for the record.
 
 One standing plan and one interrupt slot *per channel* rather than for the bot as
 a whole. Today's model is exactly this with a single channel, so it generalises
@@ -278,6 +297,44 @@ by category loses that. Plan for:
 
 Use the bench to confirm each rewritten rival performs the way it did before.
 That comparison is the whole reason Phase 1 comes first.
+
+### 2.2b Motion that does not wait — **done, and this is what replaced Route B**
+
+Robocode's answer to a starving main loop is not concurrency. It is that every
+action is non-blocking and the turn boundary is the synchronisation point. So
+rather than three stacks, the motion channel got the same treatment the turret
+got in 2.2:
+
+- `start driving {dir}` — sets the throttle and returns. No duration; it runs
+  until another motion block changes it. Unlike `drive for`, it leaves the
+  steering alone.
+- `start turning hull {dir} by {n}` — points the hull at a heading and returns,
+  holding that heading while the rest of the script runs.
+- `hull: turn still to go` — completes the set with the turret and radar ones.
+
+Because they leave each other alone, they compose: a plan can order throttle and
+heading in the same lap and still come round every tick to look at the world. A
+`forever` loop of nothing but orders runs one lap per tick, which is exactly
+Robocode's `run()` loop with `execute()` at the bottom.
+
+**Measured.** A plan built this way runs about 50,000 blocks a battle against
+1,958 for the previous Wallwise, and the standing plan's share of executions is
+100%. Starvation is simply gone.
+
+It also produced the strongest bot so far. Wallwise is rebuilt as a true
+orbiter: drive continuously, steer to the target's bearing plus 70 degrees, turn
+away at 22 metres of clear space, aim and fire every tick. **96% wins over 100
+battles** against Hunter and Orbit, up from 68%, dealing 71 damage a battle
+against 49.
+
+One honest note: the first non-blocking bot I wrote was *worse* than the
+blocking one, 43% against 68%, because driving continuously in a straight line
+is easy to shoot. The machinery gives a tight control loop; spending it well is
+still the player's job. That is the game working as intended.
+
+A surprise worth writing down: `stop moving` cancels a standing heading order,
+because any motion block that takes the wheel clears it. There is a check
+pinning that down and the help text says so.
 
 ---
 

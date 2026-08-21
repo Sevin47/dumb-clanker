@@ -167,13 +167,6 @@ export class Workshop {
   }
 
   /**
-   * Take in a bot somebody sent by link.
-   *
-   * It goes straight into the arena and never into the editor. Reading a
-   * rival's script is the one thing this game does not let you do, and a
-   * friend's bot is a rival: you beat it by watching it, not by opening it.
-   */
-  /**
    * Take in a link the player pasted, rather than making them navigate to it.
    * Reloading the game to add each bot was the friction; the link is just data
    * and there is no reason it has to arrive through the address bar.
@@ -247,7 +240,19 @@ export class Workshop {
 
   /** How many bots are lined up besides the player. */
   private opponentCount(): number {
-    return this.field.length + this.file.challengers.filter((c) => c.inField).length;
+    return (
+      this.field.length +
+      this.file.challengers.filter((c) => c.inField).length +
+      this.sparringInField().length
+    );
+  }
+
+  /** Sparring entries whose script still exists, dropping any since deleted. */
+  private sparringInField(): Array<{ id: string; name: string }> {
+    return this.file.sparring
+      .map((id) => this.file.library.find((x) => x.id === id))
+      .filter((x): x is (typeof this.file.library)[number] => !!x)
+      .map((x) => ({ id: x.id, name: x.name }));
   }
 
   /**
@@ -288,6 +293,20 @@ export class Workshop {
     for (const c of this.file.challengers) {
       if (c.inField) list.push({ name: c.name, program: cloneProgram(c.program), isPlayer: false });
     }
+    // Your own saved scripts, so a bot can be set against the one you wrote to
+    // beat it. Numbered the same way rivals are when one appears twice.
+    const seen: Record<string, number> = {};
+    for (const id of this.file.sparring) {
+      const saved = this.file.library.find((x) => x.id === id);
+      if (!saved) continue;
+      seen[id] = (seen[id] ?? 0) + 1;
+      const twice = this.file.sparring.filter((x) => x === id).length > 1;
+      list.push({
+        name: saved.name + (twice ? ` ${seen[id]}` : ''),
+        program: cloneProgram(saved.program),
+        isPlayer: false,
+      });
+    }
     return list;
   }
 
@@ -306,6 +325,7 @@ export class Workshop {
     const open = this.unlocked();
     const beaten = new Set(this.file.beaten);
     const next = rivalsInOrder().find((r) => !beaten.has(r.id));
+    const spar = this.sparringInField();
     const total = this.opponentCount() + (this.file.joinIn ? 1 : 0);
 
     return `
@@ -335,8 +355,30 @@ export class Workshop {
                    <button class="drop" data-togglechal="${c.id}" title="Take them out of the battle">&times;</button></li>`,
             )
             .join('')}
+          ${spar
+            .map(
+              (x, i) =>
+                `<li class="spar"><span class="dot d4"></span>${escapeHtml(x.name)}
+                   <i>yours</i>
+                   <button class="drop" data-unspar="${i}" title="Take them out of the battle">&times;</button></li>`,
+            )
+            .join('')}
           ${total === 0 ? '<li class="empty">Nobody yet</li>' : ''}
         </ol>
+        ${
+          this.file.library.length
+            ? `<p class="explain sparhead">Your own saved scripts. Put one in to test a build against
+                 the thing you wrote to beat it, or against a copy of itself.</p>
+               <ul class="benched sparlist">${this.file.library
+                 .map(
+                   (x) =>
+                     `<li><button class="add" data-spar="${x.id}" ${full ? 'disabled' : ''}
+                          title="Put this script in the arena as an opponent">+</button>
+                        ${escapeHtml(x.name)} <i>${countBlocks(x.program)} blocks</i></li>`,
+                 )
+                 .join('')}</ul>`
+            : ''
+        }
         <div class="pasterow">
           <input id="pastelink" type="text" placeholder="Paste a challenge link" spellcheck="false"
             ${chals.length >= MAX_CHALLENGERS ? 'disabled' : ''} />
@@ -403,12 +445,12 @@ export class Workshop {
           ${counts
             .map(
               (n) =>
-                `<button class="add" data-bench="${n}" ${running || this.field.length === 0 ? 'disabled' : ''}>
+                `<button class="add" data-bench="${n}" ${running || !this.canFight() ? 'disabled' : ''}>
                    ${n} battles</button>`,
             )
             .join('')}
         </div>
-        ${this.field.length === 0 ? '<p class="explain">Add an opponent first.</p>' : ''}
+        ${this.canFight() ? '' : '<p class="explain">Add an opponent first, or join in yourself.</p>'}
       </section>`;
   }
 
@@ -447,7 +489,7 @@ export class Workshop {
   }
 
   private startBench(battles: number) {
-    if (this.field.length === 0 || this.bench) return;
+    if (!this.canFight() || this.bench) return;
     this.benchBattles = battles;
     this.benchResult = null;
     const entrants = this.entrants();
@@ -584,6 +626,30 @@ export class Workshop {
       };
     }
 
+    q<HTMLButtonElement>('[data-spar]').forEach((b) => {
+      b.onclick = () => {
+        if (this.opponentCount() >= MAX_OPPONENTS) {
+          this.say('The arena is full. Take somebody out first.');
+          this.render();
+          return;
+        }
+        this.file.sparring.push(b.dataset.spar!);
+        this.persist();
+        this.render();
+      };
+    });
+    q<HTMLButtonElement>('[data-unspar]').forEach((b) => {
+      b.onclick = () => {
+        // The index is into the entries that still exist, so map it back.
+        const live = this.sparringInField()[Number(b.dataset.unspar)];
+        if (!live) return;
+        const at = this.file.sparring.indexOf(live.id);
+        if (at >= 0) this.file.sparring.splice(at, 1);
+        this.persist();
+        this.render();
+      };
+    });
+
     q<HTMLButtonElement>('[data-togglechal]').forEach((b) => {
       b.onclick = () => this.toggleChallenger(b.dataset.togglechal!);
     });
@@ -694,6 +760,8 @@ export class Workshop {
     q<HTMLButtonElement>('[data-del]').forEach((b) => {
       b.onclick = () => {
         this.file.library = this.file.library.filter((x) => x.id !== b.dataset.del);
+        // A script that no longer exists cannot fight.
+        this.file.sparring = this.file.sparring.filter((id) => id !== b.dataset.del);
         this.persist();
         this.render();
       };

@@ -294,6 +294,23 @@ put in or left on the bench.
 
 Beating a challenger does not climb the ladder. That is for the roster.
 
+## Fighting your own bots
+
+Every script in your library can go into the arena as an opponent. The **Your
+own saved scripts** list in the battle setup has a `+` beside each one.
+
+This is the part that matters once you are past beating the roster. Save the bot
+you have, write a second one built specifically to exploit its weakness, and put
+them in together. Add the same script twice and it fights a copy of itself,
+which is the cleanest way to see whether a change is actually an improvement
+rather than a coin flip.
+
+The test bench takes them too, so you can run a hundred battles of your build
+against your counter-build and read the win rate rather than guess it. Sit
+yourself out and the two of them fight without you in the way.
+
+Deleting a script takes it out of the arena as well.
+
 ## Watching, and practising alone
 
 The **You** row in the battle list has a button that takes your own bot out.

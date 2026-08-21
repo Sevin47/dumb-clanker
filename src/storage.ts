@@ -42,6 +42,12 @@ export interface SaveFile {
    */
   challengers: Challenger[];
   /**
+   * Saved scripts of the player's own currently in the arena, by library id.
+   * The same one may appear twice, the same as a rival, so a script can be set
+   * against a copy of itself.
+   */
+  sparring: string[];
+  /**
    * Whether the player's own bot is in the arena. Off means watching, which is
    * how two challengers fight each other.
    */
@@ -66,6 +72,7 @@ const emptyFile = (): SaveFile => ({
   library: [],
   beaten: [],
   challengers: [],
+  sparring: [],
   joinIn: true,
   field: ['lamppost'],
 });
@@ -165,6 +172,7 @@ export function loadFile(): SaveFile {
         ? raw.beaten.filter((b) => typeof b === 'string')
         : [...LADDER],
       challengers: readChallengers(raw),
+      sparring: Array.isArray(raw.sparring) ? raw.sparring.filter((x) => typeof x === 'string') : [],
       joinIn: raw.joinIn !== false,
     };
   } catch {

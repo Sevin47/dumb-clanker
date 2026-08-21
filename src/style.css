@@ -403,7 +403,8 @@ button { cursor: pointer; }
 }
 .lib-load:hover { border-color: var(--amber); }
 .lib-load b { font-size: var(--fs-small); font-weight: 600; color: var(--text); }
-.lib-load i { font-style: normal; font-size: var(--fs-micro); color: var(--muted); }
+/* --muted clears 4.5:1 on the panel but not on the lighter button behind it. */
+.lib-load i { font-style: normal; font-size: var(--fs-micro); color: var(--dim); }
 
 .drop {
   width: 26px;
@@ -1039,3 +1040,20 @@ ul.benched .drop { margin-left: auto; }
     padding: 3px 14px;
   }
 }
+
+/* Your own saved scripts, put in as opponents. */
+.field li.spar i,
+ul.sparlist i {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field li.spar i { color: var(--green); }
+
+.sparhead { margin-top: 10px; }
+ul.sparlist { margin-bottom: 2px; }
+.dot.d4 { background: #6fc98a; }

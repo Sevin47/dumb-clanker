@@ -7,6 +7,7 @@ import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram } from './
 import { Renderer } from './render';
 import { checkBlocks, reportChecks } from './checks';
 import { Inspector } from './inspector';
+import { challengeFromUrl, clearChallengeFromUrl } from './storage';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLElement;
@@ -45,6 +46,26 @@ function toWorkshop() {
   inspector.hide();
   renderer.resize();
   workshop.show();
+
+/**
+ * Somebody has been sent a bot. Ask before replacing what they have open,
+ * because a link should never quietly overwrite an evening's work.
+ */
+void (async () => {
+  const shared = await challengeFromUrl();
+  if (!shared) return;
+  clearChallengeFromUrl();
+  const blocks = countBlocks(shared.program);
+  const ok = window.confirm(
+    `This link contains a bot called "${shared.name}" (${blocks} blocks).
+
+` +
+      'Load it? Your current script will be replaced, so save it first if you want to keep it.',
+  );
+  if (!ok) return;
+  workshop.setProgram(shared.program, shared.name);
+  workshop.show();
+})();
 }
 
 /**

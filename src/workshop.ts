@@ -3,7 +3,7 @@ import { DAMAGE_KINDS, DAMAGE_LABEL } from './bot';
 import { ScriptEditor } from './editor';
 import { LADDER, cloneProgram, countBlocks, rivalById, rivalsInOrder, starterProgram, uid, type Program } from './program';
 import type { Entrant } from './match';
-import { exportScript, importScript, loadFile, saveFile, type SaveFile } from './storage';
+import { challengeLink, exportScript, importScript, loadFile, saveFile, type SaveFile } from './storage';
 
 /**
  * The workshop. There is no bot to build any more — everyone fights the same
@@ -126,6 +126,7 @@ export class Workshop {
           <button class="ghost small" id="savescript">Save</button>
           <button class="ghost small" id="exportscript" title="Download this script as a file">Export</button>
           <button class="ghost small" id="importbtn" title="Load a script from a file">Import</button>
+          <button class="ghost small" id="linkbtn" title="Copy a link that loads this bot, to send to somebody">Copy link</button>
           <input type="file" id="importfile" accept=".json,application/json" hidden />
         </div>
         <ul class="library">${rows}</ul>
@@ -403,6 +404,27 @@ export class Workshop {
         this.render();
       };
     });
+
+    const linkBtn = this.root.querySelector<HTMLButtonElement>('#linkbtn');
+    if (linkBtn) {
+      linkBtn.onclick = async () => {
+        const url = await challengeLink(this.name.trim() || 'A challenger', this.program);
+        if (!url) {
+          this.say('That script is too big to fit in a link. Use Export.');
+          this.render();
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(url);
+          this.say('Link copied. Anyone who opens it gets this bot.');
+        } catch {
+          // Clipboard is blocked in plenty of places. Show it instead.
+          window.prompt('Copy this link', url);
+          this.say('');
+        }
+        this.render();
+      };
+    }
 
     q<HTMLButtonElement>('[data-bench]').forEach((b) => {
       b.onclick = () => this.startBench(Number(b.dataset.bench));

@@ -160,3 +160,78 @@ export async function importScript(file: File): Promise<{ name: string; program:
     return null;
   }
 }
+
+// ------------------------------------------------------------ challenge links
+
+/**
+ * A script packed into a URL, so one player can send another their bot with no
+ * server involved anywhere.
+ *
+ * Deflate then base64url. `CompressionStream` is built into the browser, which
+ * keeps this dependency-free and matches how the rest of the game is built.
+ * Scripts are mostly repeated key names, so they compress hard: a 40 block bot
+ * lands comfortably inside what a URL can carry.
+ */
+
+/** Browsers vary, but every one of them is unhappy well before this. */
+const MAX_LINK = 8000;
+
+const toBase64Url = (bytes: Uint8Array): string => {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
+const fromBase64Url = (text: string): Uint8Array => {
+  const padded = text.replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4));
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+};
+
+async function squeeze(bytes: Uint8Array, mode: 'deflate-raw'): Promise<Uint8Array> {
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream(mode));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function unsqueeze(bytes: Uint8Array, mode: 'deflate-raw'): Promise<Uint8Array> {
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream(mode));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** Returns a shareable URL, or null if this script is too big to fit in one. */
+export async function challengeLink(name: string, program: Program): Promise<string | null> {
+  try {
+    const json = JSON.stringify({ n: name, p: program });
+    const packed = await squeeze(new TextEncoder().encode(json), 'deflate-raw');
+    const url = `${location.origin}${location.pathname}#bot=${toBase64Url(packed)}`;
+    return url.length > MAX_LINK ? null : url;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read a shared script out of the address bar. Runs through the same sanitiser
+ * as an imported file, because a link is a stranger's data and gets no more
+ * trust than a stranger's file.
+ */
+export async function challengeFromUrl(): Promise<{ name: string; program: Program } | null> {
+  const match = /[#&]bot=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if (!match) return null;
+  try {
+    const json = new TextDecoder().decode(await unsqueeze(fromBase64Url(match[1]), 'deflate-raw'));
+    const raw = JSON.parse(json) as { n?: unknown; p?: unknown };
+    const program = cleanProgram(raw.p);
+    if (!program.stacks.length) return null;
+    return { name: typeof raw.n === 'string' ? raw.n.slice(0, 40) : 'A challenger', program };
+  } catch {
+    return null;
+  }
+}
+
+/** Take the script out of the address bar once it has been dealt with. */
+export function clearChallengeFromUrl() {
+  history.replaceState(null, '', location.pathname + location.search);
+}

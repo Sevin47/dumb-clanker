@@ -186,6 +186,31 @@ swing reads the error you were trying to remove. Put both in a `forever` loop
 and test on a later lap. Done that way it aims better than waiting does, because
 it re-aims every tick instead of committing to one stale angle.
 
+### Orders that wait, and orders that do not
+
+Every action block that takes time comes in two forms.
+
+`turn turret right by 45` and `drive forward for 1 second` **wait**. Nothing else
+in your script runs until they finish. That is what makes aim-then-fire work:
+by the time the next block tests the gun, the gun has moved.
+
+`start turret turning right by 45`, `start radar turning`, `start driving
+forward` and `start turning hull right by 90` do **not** wait. The next block
+runs immediately while the part keeps going on its own.
+
+**"start" never waits. "turn" and "drive for" always do.**
+
+The non-blocking set is how you write a bot that watches the world constantly. A
+`forever` loop containing nothing but orders runs one lap per tick, sixty times a
+second, so your wall check is never more than a sixtieth of a second stale. The
+blocking set is how you write a sequence, where one thing genuinely has to
+finish before the next begins.
+
+They also compose: `start driving` sets only the throttle and `start turning
+hull` sets only the steering, so a bot can order both in the same lap and do
+them at once. Any block that waits takes the wheel back and cancels a standing
+heading, `stop moving` included.
+
 ### Two ways to ask about the gun
 
 `turret: how far off target` measures the gun against **the enemy**. It is live
@@ -216,6 +241,32 @@ Same bot, same 14 metre margin, 60 battles each: the directional sensor wins 73%
 against the other one's 53%, takes 73 damage a battle against 127, and stays
 alive 155 seconds against 83. Not because it is safer, but because it stops the
 bot wasting the match turning away from walls it was never going to hit.
+
+## The ladder
+
+The five rivals are shown in the order they should be met, and each one is there
+to teach one thing.
+
+| Rival | What it teaches |
+| --- | --- |
+| **Lamppost** | Aiming. It never moves, so a miss is your gun, not their evasion. |
+| **Coward** | Closing. It runs and plinks from range, so you have to go and get it. |
+| **Pacer** | Leading. It moves in a straight line, the easiest thing in the game to shoot in front of. |
+| **Orbit** | Tracking. It circles, so a gun aimed where it was misses where it is. |
+| **Hunter** | Escaping. It closes and fires heavy at point blank. Be somewhere else. |
+
+Beat one and the next unlocks. Everything in the arena counts, so beating three
+at once climbs three rungs.
+
+## Sending someone your bot
+
+**Copy link** in the Scripts panel puts your whole script in a URL. No account,
+no server, nothing to sign up for: send the link and whoever opens it is asked
+whether to load your bot. It is compressed, so a typical script comes out around
+400 to 600 characters, and a script too large to fit is refused rather than
+silently truncated.
+
+Rival scripts still cannot be copied. This is for player against player.
 
 ## Testing a bot properly
 

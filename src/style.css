@@ -883,3 +883,17 @@ ul.ladder button.add {
   padding: 2px 0;
   text-align: center;
 }
+
+@media (max-width: 940px) {
+  /* A 22px target is fine for a mouse and useless for a thumb. */
+  ul.ladder button.add {
+    width: 44px;
+    min-height: 44px;
+    font-size: 18px;
+  }
+
+  ul.ladder li {
+    align-items: center;
+    padding: 8px 9px;
+  }
+}

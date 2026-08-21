@@ -340,7 +340,7 @@ pinning that down and the help text says so.
 
 ## Phase 3 — Depth and progression
 
-### 3.1 Derived sensors (medium, mostly a design call)
+### 3.1 Derived sensors — **done, with one deliberately left out**
 
 The skill ceiling plateaus because the language has no memory and no arithmetic,
 so leading a shot cannot be expressed. A power 3 round crawls at 10 m/s against
@@ -352,17 +352,22 @@ Not variables. Sensors that do the differencing:
 - `is the target getting closer` (signed, so it can drive a turn)
 - `how far ahead to aim` (angle, signed)
 
-The last one is the interesting call. It is the same move `turret: how far to
-turn` already makes, handing over a computed angle and leaving the player to
-decide when to use it. It may be too generous. It is the same instinct that cut
-the auto-aim convenience blocks, so decide it deliberately rather than by
-accident.
+**Built the first two, left out the third.** `the target's speed` and `how fast
+the gap is closing`, the second being the relative velocity projected onto the
+line between the two bots, worked out at the moment of the scan.
+
+The lead angle is out on a mechanical ground rather than a taste one: a number
+slot takes one sensor plus a constant, not two sensors. There is no way to add a
+lead to `turret: how far to turn` in a slot, so shipping a lead angle would mean
+also shipping a pre-combined aiming sensor, and that is the auto-aim block this
+design removed on purpose. The raw materials are there instead: speed and range
+are what a player needs to work out their own constant offset.
 
 - `src/bot.ts` — `see()` records a snapshot; it needs to record the target's
   velocity too.
 - `src/blocks.ts`, `src/vm.ts`, `src/checks.ts` as with any sensor.
 
-### 3.2 Rival ladder (medium)
+### 3.2 Rival ladder — **done**
 
 The five rivals are a difficulty curve presented as a flat menu. Each one teaches
 something specific: Lamppost teaches aiming, Pacer teaches leading, Orbit teaches
@@ -374,7 +379,12 @@ radar tracking, Coward teaches closing, Hunter teaches escape.
 
 A tutorial that never opens a tutorial window.
 
-### 3.3 Challenge links (small)
+Order: Lamppost, Coward, Pacer, Orbit, Hunter. Everything in the arena counts
+towards a win, so beating three at once climbs three rungs. A save from before
+this existed has no beaten list and gets the whole roster, because a returning
+player should not find four opponents taken away.
+
+### 3.3 Challenge links — **done**
 
 Static hosting, no backend, so put the script in the URL.
 
@@ -383,8 +393,9 @@ Static hosting, no backend, so put the script in the URL.
 - `src/main.ts` — read `location.hash` on load, run it through `cleanProgram`
   exactly like an imported file, and ask before replacing the current script.
 
-Watch the URL length limit. If a large script overflows, say so rather than
-producing a link that silently truncates.
+Measured: the starter script is a 381 character link, Hunter 515, and a
+deliberately absurd 192 block script still only reaches 1973. Anything past 8000
+is refused with a message rather than silently truncated.
 
 Rival scripts stay uncopyable. This is for player against player, which is a
 different thing.
@@ -393,7 +404,7 @@ different thing.
 
 ## Phase 4 — Feel
 
-### 4.1 Audio (medium)
+### 4.1 Audio — **done**
 
 There is no audio at all today, which is a lot of free feedback left on the table
 for a game whose core activity is watching.
@@ -406,16 +417,29 @@ for a game whose core activity is watching.
 - Needs a user gesture to unlock the audio context. The Fight button is the
   natural place.
 
-### 4.2 Kill feed (small)
+### 4.2 Kill feed — **done**
 
 Damage happens off screen constantly and the only trace is a health bar moving.
 
 - `src/match.ts` — a short rolling list of events.
 - `src/hud.ts` — three or four lines, faded, bottom corner.
 
-Reads straight from the Phase 1 damage ledger.
+Reads off a new event stream on `Match`, which the audio shares, so neither has
+to hook every damage site separately.
 
 ---
+
+## What was left undone, and why
+
+**Route B, three concurrent stacks (2.3).** Deliberately not built. A standing
+plan written out of non-blocking orders already runs every tick at 100% of
+executions, so there is nothing left for concurrency to fix, and the migration
+would have cost a storage version bump, a lossy autoconversion of every saved
+script, and five rivals rewritten by hand. Robocode reached the same place with
+one thread. The full design is kept above if the reasoning ever stops holding.
+
+**The lead-angle sensor (3.1).** Blocked by the slot model, not by taste. See
+above.
 
 ## Order, condensed
 

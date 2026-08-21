@@ -308,3 +308,28 @@ export async function challengeFromUrl(): Promise<DecodedChallenge | null> {
 export function clearChallengeFromUrl() {
   history.replaceState(null, '', location.pathname + location.search);
 }
+
+
+// ------------------------------------------------------------ view settings
+
+/**
+ * Whether the script panel shows during a battle. A view preference rather
+ * than game data, so it gets its own key and never rides along with a script.
+ */
+const PANEL_KEY = 'dumbclanker.panel.v1';
+
+export function loadPanelOpen(): boolean {
+  try {
+    return localStorage.getItem(PANEL_KEY) !== 'hidden';
+  } catch {
+    return true;
+  }
+}
+
+export function savePanelOpen(open: boolean) {
+  try {
+    localStorage.setItem(PANEL_KEY, open ? 'shown' : 'hidden');
+  } catch {
+    // A browser that will not store a preference still has to run the game.
+  }
+}

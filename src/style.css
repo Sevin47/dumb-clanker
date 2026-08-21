@@ -505,17 +505,18 @@ button { cursor: pointer; }
   background: var(--panel);
   border-right: 1px solid var(--line);
 }
-#inspector.active { display: flex; }
+#inspector.active.open { display: flex; }
 
 .ins-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 11px 14px 9px;
   border-bottom: 1px solid var(--line-soft);
 }
 .ins-status {
+  margin-right: auto;
   font-size: var(--fs-micro);
   font-weight: 700;
   color: var(--green);
@@ -626,8 +627,8 @@ button { cursor: pointer; }
     z-index: 15;
     border-right: 1px solid var(--line);
   }
-  #inspector:not(.open) { display: none; }
-  #inspector-toggle { display: block; }
+  /* Nothing width-specific left to say: the panel shows when it is open, and
+     main.ts decides whether the floating button is needed. */
 }
 
 @media (max-width: 560px) {
@@ -1011,4 +1012,30 @@ ul.benched .drop { margin-left: auto; }
 @media (max-width: 940px) {
   .pasterow input,
   .pasterow button { min-height: 40px; }
+}
+
+/* The panel's own hide control, in its header beside the status.
+   Needs the extra id to outrank "#inspector button { flex: 1 }", which would
+   otherwise stretch it right across the header. */
+#inspector #ins-hide {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--dim);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+}
+
+#inspector #ins-hide:hover {
+  background: var(--panel-3);
+  color: var(--text);
+}
+
+@media (max-width: 940px) {
+  #inspector #ins-hide {
+    min-height: 40px;
+    padding: 3px 14px;
+  }
 }

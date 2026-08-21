@@ -7,7 +7,7 @@ import { RIVALS, cloneProgram, countBlocks, rivalById, starterProgram } from './
 import { Renderer } from './render';
 import { checkBlocks, reportChecks } from './checks';
 import { Inspector } from './inspector';
-import { challengeFromUrl, clearChallengeFromUrl } from './storage';
+import { challengeFromUrl, clearChallengeFromUrl, loadPanelOpen, savePanelOpen } from './storage';
 import { playMatchAudio, resetAudio, startAudio } from './audio';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -28,6 +28,7 @@ const workshop = new Workshop(overlay, (entrants) => {
   canvas.classList.add('active');
   inspectorToggle.hidden = false;
   inspector.show();
+  applyPanel(NARROW() ? false : panelOpen, false);
   renderer.resize();
   resultCounted = false;
   // The Fight button is the player's first click, which is the only moment a
@@ -86,15 +87,35 @@ function recall() {
   match?.recallPlayer();
 }
 
-const inspector = new Inspector(inspectorHost, recall, restart, toWorkshop);
+/**
+ * Whether the script panel is showing. Remembered, because somebody who wants
+ * to watch the fight usually wants to watch the next one too.
+ *
+ * On a narrow screen the panel covers the arena rather than sitting beside it,
+ * so a battle always opens with it out of the way there whatever the setting.
+ */
+const NARROW = () => window.matchMedia('(max-width: 940px)').matches;
+let panelOpen = loadPanelOpen();
+
+function applyPanel(open: boolean, remember: boolean) {
+  panelOpen = open;
+  if (remember) savePanelOpen(open);
+  inspectorHost.classList.toggle('open', open);
+  // The floating button is only there to bring the panel back, so it goes away
+  // while the panel is up. Hiding is done from the panel's own header.
+  inspectorToggle.style.display = open ? 'none' : 'block';
+  // The arena gets the space back, so the camera has to be refitted.
+  renderer.resize();
+}
+
+const inspector = new Inspector(inspectorHost, recall, restart, toWorkshop, () =>
+  applyPanel(false, !NARROW()),
+);
 
 // On a narrow screen the inspector slides over the arena rather than sitting
 // beside it, so it needs a way to open and close.
 const inspectorToggle = document.getElementById('inspector-toggle') as HTMLButtonElement;
-inspectorToggle.onclick = () => {
-  const open = inspectorHost.classList.toggle('open');
-  inspectorToggle.textContent = open ? 'Close' : 'Script';
-};
+inspectorToggle.onclick = () => applyPanel(true, !NARROW());
 
 workshop.show();
 
@@ -146,6 +167,10 @@ function frame(now: number) {
     if (pressed(']')) {
       consume(']');
       inspector.cycleSpeed(1);
+    }
+    if (pressed('i')) {
+      consume('i');
+      applyPanel(!panelOpen, !NARROW());
     }
     if (pressed('r')) {
       consume('r');

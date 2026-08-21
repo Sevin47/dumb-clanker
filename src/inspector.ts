@@ -90,12 +90,14 @@ export class Inspector {
     private onRecall: () => void,
     private onRerun: () => void,
     private onWorkshop: () => void,
+    private onHide: () => void,
   ) {
     this.root = root;
     this.root.innerHTML = `
       <header class="ins-head">
         <h2>Your script</h2>
         <span class="ins-status" id="ins-status">waiting</span>
+        <button id="ins-hide" title="Hide this panel and just watch. Shortcut: I">Hide</button>
       </header>
       <div class="ins-script" id="ins-script"></div>
       <p class="ins-note" id="ins-note"></p>
@@ -149,6 +151,7 @@ export class Inspector {
       mute.textContent = on ? 'Sound' : 'Muted';
     };
 
+    this.root.querySelector<HTMLButtonElement>('#ins-hide')!.onclick = () => this.onHide();
     this.root.querySelector<HTMLButtonElement>('#ins-recall')!.onclick = () => this.onRecall();
     this.root.querySelector<HTMLButtonElement>('#ins-rerun')!.onclick = () => this.onRerun();
     this.root.querySelector<HTMLButtonElement>('#ins-workshop')!.onclick = () => this.onWorkshop();

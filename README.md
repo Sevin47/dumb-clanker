@@ -138,6 +138,17 @@ running tally:
   that never fires, or a branch whose test is never true. Blocks that never run
   are dimmed, and a warning appears if a whole stack has stayed cold.
 
+### Putting it away
+
+`Hide` in the panel's header, or `I`, folds the whole thing away and gives the
+space to the arena. On a 1280 wide window that takes the picture from 986 across
+to the full 1280. A button in the bottom left brings it back.
+
+The setting is remembered, because somebody who wants to watch the fight
+usually wants to watch the next one too. On a phone the panel covers the arena
+rather than sitting beside it, so a battle there always opens with it out of the
+way whatever the setting says.
+
 ### The three channels
 
 Under the script are three readouts: **driving**, **turret**, **radar**.
@@ -162,6 +173,7 @@ Nobody drives — the bots run their own programs. Everything is in the left pan
 | **0.5× / 1× / 2× / 4×** (`[` `]`) | Battle speed. Slow it down to watch a turret track; speed it up to reach the interesting part. |
 | **Recall bot** (`C`) | Teleports your bot to a clear spot and restarts its script. For when it wedges itself in a corner, or the script talks itself into one. Not free: the gun comes back hot and everything it had scanned is forgotten. |
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
+| **Hide** (`I`) | Put the script panel away and just watch. The arena takes the space back. The button bottom left brings it up again. |
 | **Workshop** (`B`) | Back to the editor. |
 
 ### Waiting, or not waiting

@@ -330,10 +330,18 @@ export class ClankVM {
       }
 
       // --- turret channel ---
-      case 'turn_turret': {
+      //
+      // "turn" waits for the gun to arrive, "start turning" does not. The wait
+      // is the only way this language can say "after it gets there", and
+      // aim-then-fire depends on it: without it the fire block is reached in
+      // the same tick, before the turret has moved at all, so the gun error is
+      // still the error the aim was meant to remove.
+      case 'turn_turret':
+      case 'turret_start': {
         const amount = clampTurn(this.val(node, 'n', s));
         const sign = String(node.args.dir) === 'left' ? -1 : 1;
         this.turretTarget = b.turret + (sign * amount * Math.PI) / 180;
+        if (op === 'turret_start') return null;
         return { op, endsAt: this.clock + 3, deadline: this.clock + 3 };
       }
       case 'fire':
@@ -345,11 +353,13 @@ export class ClankVM {
         this.radarSpin = String(node.args.dir) === 'left' ? -1 : 1;
         this.radarTarget = null;
         return null;
-      case 'turn_radar': {
+      case 'turn_radar':
+      case 'radar_start': {
         const amount = clampTurn(this.val(node, 'n', s));
         const sign = String(node.args.dir) === 'left' ? -1 : 1;
         this.radarSpin = 0;
         this.radarTarget = b.radar + (sign * amount * Math.PI) / 180;
+        if (op === 'radar_start') return null;
         return { op, endsAt: this.clock + 3, deadline: this.clock + 3 };
       }
 
@@ -507,7 +517,8 @@ export class ClankVM {
           break;
         }
         case 'sweep':
-        case 'turn_radar': {
+        case 'turn_radar':
+        case 'radar_start': {
           const ra = this.startAction(node, s);
           if (ra) {
             ctx.action = ra;

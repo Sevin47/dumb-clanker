@@ -367,6 +367,82 @@ export function checkBlocks(): CheckResult[] {
   }
 
   // ------------------------------------------------------------ typing
+  // ------------------------------------------------ waiting, or not waiting
+  //
+  // "turn" waits for the part to arrive, "start turning" does not. The wait is
+  // the only way this language can say "after it gets there", so aim-then-fire
+  // depends on it. The non-blocking pair exists so a script can keep watching
+  // for walls while the gun swings, which is what a long slew otherwise costs.
+  {
+    const aim = n('turn_turret', { dir: 'right', n: 180 });
+    const shot = n('fire', { n: 1 });
+    const m = scenario(prog([aim, shot, n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.2);
+    const early = vm.hits.get(shot.id) ?? 0;
+    run(m, 2);
+    const late = vm.hits.get(shot.id) ?? 0;
+    add(
+      'Turret',
+      'turn turret holds the script until the gun arrives',
+      early === 0 && late > 0,
+      `after 0.2s the next block had run ${early} times, after 2.2s ${late}`,
+    );
+  }
+  {
+    const aim = n('turret_start', { dir: 'right', n: 180 });
+    const shot = n('fire', { n: 1 });
+    const m = scenario(prog([aim, shot, n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.05);
+    add(
+      'Turret',
+      'start turret turning does not hold the script up',
+      (vm.hits.get(shot.id) ?? 0) > 0,
+      `the next block ran within a tick of a 180 degree swing starting`,
+    );
+  }
+  {
+    // The swing still happens. Not waiting is not the same as not turning.
+    const m = scenario(prog([n('turret_start', { dir: 'right', n: 180 }), n('stop', { n: 5 })]));
+    const before = m.bots[0].turret;
+    run(m, 2);
+    const turned = Math.abs(wrap(deg(m.bots[0].turret - before)));
+    add(
+      'Turret',
+      'the gun still gets there after start turret turning',
+      near(turned, 180, 8),
+      `swung ${turned.toFixed(0)} degrees while the script carried on`,
+    );
+  }
+  {
+    const aim = n('turn_radar', { dir: 'right', n: 180 });
+    const after = n('fire', { n: 1 });
+    const m = scenario(prog([aim, after, n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.1);
+    const early = vm.hits.get(after.id) ?? 0;
+    run(m, 1);
+    add(
+      'Radar',
+      'turn radar holds the script, start radar turning does not',
+      early === 0 && (vm.hits.get(after.id) ?? 0) > 0,
+      `blocking form had not reached the next block after 0.1s`,
+    );
+  }
+  {
+    const after = n('fire', { n: 1 });
+    const m = scenario(prog([n('radar_start', { dir: 'right', n: 180 }), after, n('stop', { n: 5 })]));
+    const vm = m.vms.get(m.bots[0])!;
+    run(m, 0.05);
+    add(
+      'Radar',
+      'start radar turning moves straight on',
+      (vm.hits.get(after.id) ?? 0) > 0,
+      `the next block ran within a tick`,
+    );
+  }
+
   // ------------------------------------------------------------ sensing
   //
   // "clear space ahead of me" exists because "distance to the nearest wall"

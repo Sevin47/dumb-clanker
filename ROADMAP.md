@@ -137,24 +137,59 @@ Pick one before writing any VM code, because it decides what these blocks become
   them to track. More honest, more blocks to write, more in the spirit of the
   language.
 
-### 2.2 Route A: stop turret and radar blocks blocking (medium)
+### 2.2 Route A — **done, but not the way this said**
 
-**Do this first, and measure before going further.**
+The plan was to flip the default: make `turn turret` and `turn radar` return
+immediately, with `and wait` variants for scripts that need to block. The claim
+was "no saved script breaks structurally, they just loop faster."
 
-Make `turn turret`, `turn radar` and `sweep` set their target and return
-immediately rather than occupying the bot until they arrive. Add explicit
-`and wait` variants for when a script genuinely needs to block.
+**That claim was wrong, and the bench caught it before any of it shipped.**
+Flipping the default gutted every bot on the roster:
 
-- `src/vm.ts` — `startAction` returns null for these instead of an Action.
-- `src/blocks.ts` — the waiting variants, and help text that says which is which.
+| | shots fired | damage dealt |
+| --- | --- | --- |
+| Hunter | 7 → 3 | 61 → 48 |
+| Orbit | 8 → 3 | 30 → 15 |
+| Coward | 6 → 2 | 10 → 4 |
+| Starter | 28 → 27 | 20 → 13 |
 
-A fraction of the work of Route B, and it captures most of the benefit. The
-standing plan stops starving, the wall check stops going stale inside a turret
-slew, and no saved script breaks structurally. Scripts change behaviour, they
-just loop faster.
+The reason is that a block finishing is the only way this language can say
+"after it gets there". Aim-then-fire depends on it. Hunter does gate its shot on
+`turret: how far off target`, but with a non-blocking turn the aim and the check
+land in the same tick, before the turret has moved at all, so the gate reads the
+very error the aim was meant to remove. Making only the radar non-blocking was
+worse again.
 
-Then run the Phase 1 bench across the rival roster. If starvation is gone and the
-scripts read clearly, Route B may not be needed at all.
+So the default is unchanged and the new behaviour is opt-in:
+
+- `turn turret {dir} by {n}` and `turn radar {dir} by {n}` wait, exactly as
+  before. Every saved script and every rival is untouched.
+- `start turret turning {dir} by {n}` and `start radar turning {dir} by {n}` are
+  new, and do not wait.
+
+This also gives the language a rule worth having, one it half had already through
+`start sweeping radar`: **"start" never waits, "turn" always does.**
+
+The payoff is real where it matters. Same bot, one block swapped, 50 battles:
+
+| | turn turret (waits) | start turret turning |
+| --- | --- | --- |
+| Won | 52% | **80%** |
+| Wall damage per battle | 4.2 | **0.1** |
+| Damage taken | 81 | **51** |
+| Accuracy | 16% | **20%** |
+
+It aims *better*, not worse, because it re-aims every tick instead of committing
+to one stale angle and waiting for it.
+
+Wallwise is rebuilt on it: 15 blocks down to 11, and the `stop for 0.05` that
+existed only to clear the sticky throttle before a slow aim is gone, because
+aiming no longer holds anything up.
+
+**What this means for Route B.** Starvation is not what I thought. The standing
+plan's share of executions barely moved either way. What starves it is interrupt
+stacks firing constantly, not turret blocks holding it up. Route B should be
+judged on that, not on the turret.
 
 ### 2.3 Route B: three concurrent stacks (large, only if still wanted)
 

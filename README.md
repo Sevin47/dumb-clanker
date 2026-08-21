@@ -164,6 +164,28 @@ Nobody drives — the bots run their own programs. Everything is in the left pan
 | **Run again** (`R`) | Same field, fresh battle, new random positions. |
 | **Workshop** (`B`) | Back to the editor. |
 
+### Waiting, or not waiting
+
+`turn turret right by 45` **waits**. Nothing else in your script runs until the
+gun arrives. That is what makes aim-then-fire work: by the time the next block
+tests `turret: how far off target`, the turret has actually moved.
+
+`start turret turning right by 45` does **not** wait. The next block runs
+immediately while the gun keeps swinging on its own.
+
+The rule across the language: **"start" never waits, "turn" always does.**
+
+Waiting is not free. A 180 degree swing takes over a second, and during that
+second your script is not checking anything, including walls, while the throttle
+stays wherever the last drive block left it. That is the usual reason a bot
+drives into a wall it had just checked was clear.
+
+The non-blocking form has its own catch: the gun has not moved yet when the next
+block runs, so testing `turret: how far off target` straight after starting a
+swing reads the error you were trying to remove. Put both in a `forever` loop
+and test on a later lap. Done that way it aims better than waiting does, because
+it re-aims every tick instead of committing to one stale angle.
+
 ### Knowing where the walls are
 
 There are two wall sensors and the difference matters.

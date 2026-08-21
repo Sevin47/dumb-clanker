@@ -277,7 +277,14 @@ export const BLOCKS: BlockDef[] = [
     cat: 'turret',
     text: 'turn turret {dir} by {n}',
     slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(45) },
-    help: 'Swings the turret independently of the hull, about 149 degrees a second. Finishes when it arrives. Set the amount to "turret: how far to turn" and it aims at the target. but only for where they were at that instant, so run it every lap.',
+    help: 'Swings the turret independently of the hull, about 149 degrees a second, and waits until it arrives. Set the amount to "turret: how far to turn" and it aims at the target, but only at where they were at that instant, so run it every lap. Nothing else in the script runs while it swings.',
+  },
+  {
+    op: 'turret_start',
+    cat: 'turret',
+    text: 'start turret turning {dir} by {n}',
+    slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(45) },
+    help: 'The same swing, but it does not wait. The next block runs at once while the gun keeps turning on its own. Use it to stay alert while aiming, and remember the gun has not moved yet: test "turret: how far off target" on a later lap before you fire, not on this one.',
   },
   {
     op: 'fire',
@@ -300,7 +307,14 @@ export const BLOCKS: BlockDef[] = [
     cat: 'radar',
     text: 'turn radar {dir} by {n}',
     slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(90) },
-    help: 'Stops any sweep and swings the radar by that much, about 344 degrees a second. Finishes when it arrives. Set the amount to "radar: how far to turn" to hold the beam on the target. once per run, so repeat it.',
+    help: 'Stops any sweep and swings the radar by that much, about 344 degrees a second, waiting until it arrives. Set the amount to "radar: how far to turn" to hold the beam on the target. Once per run, so repeat it.',
+  },
+  {
+    op: 'radar_start',
+    cat: 'radar',
+    text: 'start radar turning {dir} by {n}',
+    slots: { dir: { kind: 'choice', def: 'right', options: DIR }, n: degrees(90) },
+    help: 'The same turn, but it does not wait. The next block runs at once while the beam keeps going on its own.',
   },
 
   // ------------------------------------------------------------- control

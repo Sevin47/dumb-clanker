@@ -397,6 +397,14 @@ Measured: the starter script is a 381 character link, Hunter 515, and a
 deliberately absurd 192 block script still only reaches 1973. Anything past 8000
 is refused with a message rather than silently truncated.
 
+**Corrected after shipping.** The first version loaded a shared bot into the
+recipient's editor, which handed over the source. That breaks the one rule this
+game has always kept: a rival's script cannot be read. A challenger now goes
+straight into the battle list and never touches the editor, so it can be fought
+and not opened. Verified from a clean profile: the editor is untouched, and the
+challenger's blocks appear nowhere in the script canvas, the battle card or the
+arena inspector.
+
 Rival scripts stay uncopyable. This is for player against player, which is a
 different thing.
 

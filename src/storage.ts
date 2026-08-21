@@ -36,6 +36,11 @@ export interface SaveFile {
    * a returning player should not find four opponents suddenly taken away.
    */
   beaten: string[];
+  /**
+   * A bot somebody sent by link. It lives here and nowhere else: it never
+   * touches the editor, so its script cannot be read, exactly like a rival's.
+   */
+  challenger: { name: string; program: Program } | null;
 }
 
 const emptyFile = (): SaveFile => ({
@@ -44,6 +49,7 @@ const emptyFile = (): SaveFile => ({
   current: starterProgram(),
   library: [],
   beaten: [],
+  challenger: null,
   field: ['lamppost'],
 });
 
@@ -93,6 +99,14 @@ export function cleanProgram(raw: unknown): Program {
 
 // ---------------------------------------------------------------- the file
 
+function readChallenger(raw: unknown): SaveFile['challenger'] {
+  if (!raw || typeof raw !== 'object') return null;
+  const c = raw as { name?: unknown; program?: unknown };
+  const program = cleanProgram(c.program);
+  if (!program.stacks.length) return null;
+  return { name: typeof c.name === 'string' ? c.name.slice(0, 40) : 'A challenger', program };
+}
+
 export function loadFile(): SaveFile {
   try {
     const text = localStorage.getItem(KEY);
@@ -119,6 +133,7 @@ export function loadFile(): SaveFile {
       beaten: Array.isArray(raw.beaten)
         ? raw.beaten.filter((b) => typeof b === 'string')
         : [...LADDER],
+      challenger: readChallenger(raw.challenger),
     };
   } catch {
     // Corrupt or unreadable storage should never stop the game opening.

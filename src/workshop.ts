@@ -154,6 +154,34 @@ export class Workshop {
   }
 
   /**
+   * Take in a bot somebody sent by link.
+   *
+   * It goes straight into the arena and never into the editor. Reading a
+   * rival's script is the one thing this game does not let you do, and a
+   * friend's bot is a rival: you beat it by watching it, not by opening it.
+   */
+  addChallenger(name: string, program: Program) {
+    this.file.challenger = { name, program };
+    this.persist();
+    this.pane = 'battle';
+    this.render();
+  }
+
+  hasChallenger(): boolean {
+    return !!this.file.challenger;
+  }
+
+  challengerName(): string {
+    return this.file.challenger?.name ?? '';
+  }
+
+  private dropChallenger() {
+    this.file.challenger = null;
+    this.persist();
+    this.render();
+  }
+
+  /**
    * Called when a battle is won. Everything that was in the arena counts, so
    * beating three at once climbs three rungs.
    */
@@ -179,6 +207,8 @@ export class Workshop {
       const suffix = this.field.filter((f) => f === id).length > 1 ? ` ${counts[id]}` : '';
       list.push({ name: r.name + suffix, program: r.program(), isPlayer: false });
     }
+    const c = this.file.challenger;
+    if (c) list.push({ name: c.name, program: cloneProgram(c.program), isPlayer: false });
     return list;
   }
 
@@ -191,7 +221,8 @@ export class Workshop {
       )
       .join('');
 
-    const full = this.field.length >= MAX_OPPONENTS;
+    const challenger = this.file.challenger;
+    const full = this.field.length + (challenger ? 1 : 0) >= MAX_OPPONENTS;
     const open = this.unlocked();
     const beaten = new Set(this.file.beaten);
     const next = rivalsInOrder().find((r) => !beaten.has(r.id));
@@ -204,8 +235,20 @@ export class Workshop {
         }. The same one can go in twice.</p>
         <ol class="field">
           <li class="you"><span class="dot d0"></span>You</li>
-          ${rows || '<li class="empty">Nobody else yet</li>'}
+          ${rows || (challenger ? '' : '<li class="empty">Nobody else yet</li>')}
+          ${
+            challenger
+              ? `<li class="challenger"><span class="dot d5"></span>${escapeHtml(challenger.name)}
+                   <i>sent to you</i>
+                   <button class="drop" data-dropchallenger="1" title="Take them out of the battle">&times;</button></li>`
+              : ''
+          }
         </ol>
+        ${
+          challenger
+            ? '<p class="explain">Their script is sealed, the same as any rival. Work out what it does by watching it.</p>'
+            : ''
+        }
         <ul class="ladder">
           ${rivalsInOrder()
             .map((r) => {
@@ -425,6 +468,9 @@ export class Workshop {
         this.render();
       };
     }
+
+    const dropC = this.root.querySelector<HTMLButtonElement>('[data-dropchallenger]');
+    if (dropC) dropC.onclick = () => this.dropChallenger();
 
     q<HTMLButtonElement>('[data-bench]').forEach((b) => {
       b.onclick = () => this.startBench(Number(b.dataset.bench));

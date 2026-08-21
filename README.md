@@ -261,12 +261,17 @@ at once climbs three rungs.
 ## Sending someone your bot
 
 **Copy link** in the Scripts panel puts your whole script in a URL. No account,
-no server, nothing to sign up for: send the link and whoever opens it is asked
-whether to load your bot. It is compressed, so a typical script comes out around
-400 to 600 characters, and a script too large to fit is refused rather than
-silently truncated.
+no server, nothing to sign up for. It is compressed, so a typical script comes
+out around 400 to 600 characters, and one too large to fit is refused rather
+than silently truncated.
 
-Rival scripts still cannot be copied. This is for player against player.
+Whoever opens the link is asked whether to put your bot **in their arena**. It
+goes into their battle list and never into their editor, so they can fight it
+but they cannot read it. That is the same deal the built-in rivals get: you work
+out what a bot does by watching it, not by opening it. Their own script is left
+alone, and they can drop your bot out of the field whenever they like.
+
+Beating a challenger does not climb the ladder. That is for the roster.
 
 ## Testing a bot properly
 

@@ -897,3 +897,20 @@ ul.ladder button.add {
     padding: 8px 9px;
   }
 }
+
+/* A bot somebody sent. Marked out from the roster, because it is not one. */
+.field li.challenger {
+  color: var(--text);
+}
+
+.field li.challenger i {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-left: 6px;
+}
+
+.dot.d5 { background: #b07fd4; }

@@ -54,8 +54,11 @@ function toWorkshop() {
   workshop.show();
 
 /**
- * Somebody has been sent a bot. Ask before replacing what they have open,
- * because a link should never quietly overwrite an evening's work.
+ * Somebody has been sent a bot.
+ *
+ * It goes straight into the arena and never into the editor. Reading a rival's
+ * script is the one thing this game does not let you do, and a friend's bot is
+ * a rival. Loading it into the editor would have handed over the answer.
  */
 void (async () => {
   const shared = await challengeFromUrl();
@@ -63,13 +66,13 @@ void (async () => {
   clearChallengeFromUrl();
   const blocks = countBlocks(shared.program);
   const ok = window.confirm(
-    `This link contains a bot called "${shared.name}" (${blocks} blocks).
+    `You have been sent a bot: "${shared.name}" (${blocks} blocks).
 
 ` +
-      'Load it? Your current script will be replaced, so save it first if you want to keep it.',
+      'Put them in the arena? Your own script is untouched, and theirs stays sealed.',
   );
   if (!ok) return;
-  workshop.setProgram(shared.program, shared.name);
+  workshop.addChallenger(shared.name, shared.program);
   workshop.show();
 })();
 }

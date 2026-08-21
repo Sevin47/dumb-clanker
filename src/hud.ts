@@ -2,7 +2,7 @@ import { HUD_H, HUD_W } from './config';
 import { DAMAGE_KINDS, DAMAGE_LABEL } from './bot';
 import { P } from './palette';
 import type { Match } from './match';
-import { GUN } from './spec';
+import { GUN, MATCH_SECONDS } from './spec';
 
 const FONT = 'system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
@@ -55,6 +55,7 @@ export class Hud {
     this.c.textBaseline = 'top';
     this.topBar(m);
     this.roster(m);
+    this.feed(m);
     if (m.phase === 'countdown') this.countdown(m);
     if (m.phase === 'over') this.result(m);
     this.c.textAlign = 'left';
@@ -110,6 +111,37 @@ export class Hud {
       this.bar(x + 11, y + 10, 97, 3, bot.healthPct / 100, dead ? P.pipOff : bot.colors.body);
       y += 18;
     }
+  }
+
+  /**
+   * The last few things that happened. Damage lands off screen constantly and
+   * the only trace used to be a health bar moving, which tells you that you are
+   * losing but never what to.
+   */
+  private feed(m: Match) {
+    const now = MATCH_SECONDS - m.timeLeft;
+    const lines = m.events
+      .filter((e) => e.text && now - e.at < 5)
+      .slice(-4);
+    if (!lines.length) return;
+
+    const c = this.c;
+    let y = this.h - 10 - lines.length * 12;
+    for (const e of lines) {
+      // Fade out over the last second and a half, so the corner never nags.
+      const age = now - e.at;
+      c.globalAlpha = Math.max(0, Math.min(1, (5 - age) / 1.5));
+      this.text(
+        e.text,
+        8,
+        y,
+        e.kind === 'death' ? P.hot : e.isPlayer ? P.text : P.textDim,
+        9,
+        e.isPlayer ? 700 : 600,
+      );
+      y += 12;
+    }
+    c.globalAlpha = 1;
   }
 
   private countdown(m: Match) {

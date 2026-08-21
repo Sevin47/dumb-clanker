@@ -8,6 +8,7 @@ import { Renderer } from './render';
 import { checkBlocks, reportChecks } from './checks';
 import { Inspector } from './inspector';
 import { challengeFromUrl, clearChallengeFromUrl } from './storage';
+import { playMatchAudio, resetAudio, startAudio } from './audio';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const overlay = document.getElementById('overlay') as HTMLElement;
@@ -29,12 +30,17 @@ const workshop = new Workshop(overlay, (entrants) => {
   inspector.show();
   renderer.resize();
   resultCounted = false;
+  // The Fight button is the player's first click, which is the only moment a
+  // browser will let audio start.
+  startAudio();
+  resetAudio();
   match = new Match(entrants);
 });
 
 function restart() {
   if (!lastEntrants) return;
   resultCounted = false;
+  resetAudio();
   match = new Match(lastEntrants.map((e) => ({ ...e, program: cloneProgram(e.program) })));
 }
 
@@ -108,6 +114,7 @@ function frame(now: number) {
     }
     renderer.draw(match, dt);
     inspector.update(match, now);
+    playMatchAudio(match);
 
     // Climb the ladder. Counted once, the moment the battle is decided.
     if (!resultCounted && match.phase === 'over') {

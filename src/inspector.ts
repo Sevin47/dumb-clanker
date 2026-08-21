@@ -1,3 +1,4 @@
+import { audioEnabled, toggleAudio } from './audio';
 import { SENSORS } from './blocks';
 import { ScriptEditor } from './editor';
 import type { Match } from './match';
@@ -116,6 +117,7 @@ export class Inspector {
       <div class="ins-transport">
         <button id="ins-pause" title="Pause the battle. Shortcut: space">Pause</button>
         <button id="ins-step" title="Move on one frame. Shortcut: full stop">Step</button>
+        <button id="ins-mute" title="Turn the sound off and on">Sound</button>
         <span class="ins-speeds">
           ${SPEEDS.map(
             (s) => `<button class="spd ${s === 1 ? 'on' : ''}" data-speed="${s}">${s}&times;</button>`,
@@ -138,6 +140,15 @@ export class Inspector {
 
     this.root.querySelector<HTMLButtonElement>('#ins-pause')!.onclick = () => this.togglePause();
     this.root.querySelector<HTMLButtonElement>('#ins-step')!.onclick = () => this.step();
+    const mute = this.root.querySelector<HTMLButtonElement>('#ins-mute')!;
+    mute.classList.toggle('on', audioEnabled());
+    mute.onclick = () => {
+      const on = !audioEnabled();
+      toggleAudio(on);
+      mute.classList.toggle('on', on);
+      mute.textContent = on ? 'Sound' : 'Muted';
+    };
+
     this.root.querySelector<HTMLButtonElement>('#ins-recall')!.onclick = () => this.onRecall();
     this.root.querySelector<HTMLButtonElement>('#ins-rerun')!.onclick = () => this.onRerun();
     this.root.querySelector<HTMLButtonElement>('#ins-workshop')!.onclick = () => this.onWorkshop();

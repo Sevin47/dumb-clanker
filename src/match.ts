@@ -35,6 +35,24 @@ export interface Bullet {
 
 export type MatchPhase = 'countdown' | 'fighting' | 'over';
 
+/**
+ * Things worth hearing or reading about. Damage happens off screen constantly
+ * and the only trace used to be a health bar moving, so both the kill feed and
+ * the sound come off this one stream rather than hooking every site twice.
+ */
+export type EventKind = 'fire' | 'hit' | 'wall' | 'ram' | 'death' | 'heatblock';
+
+export interface MatchEvent {
+  seq: number;
+  kind: EventKind;
+  /** Seconds into the battle. */
+  at: number;
+  /** Empty for the ones that are sound only. */
+  text: string;
+  power: number;
+  isPlayer: boolean;
+}
+
 export interface MatchResult {
   winner: Bot | null;
   reason: string;
@@ -63,6 +81,10 @@ export class Match {
 
   private accumulator = 0;
   private deaths = 0;
+
+  /** A short rolling log. Anything older falls off the end. */
+  readonly events: MatchEvent[] = [];
+  private eventSeq = 0;
 
   /**
    * Nothing is being drawn, so skip the work that only exists to be looked at.
@@ -106,6 +128,11 @@ export class Match {
         b.hitCooldown = IMPACT.cooldown;
         a.hurt(dmg, 'ram', b.name);
         b.hurt(dmg, 'ram', a.name);
+        this.note(
+          'ram',
+          `${a.isPlayer ? 'You' : a.name} and ${b.isPlayer ? 'you' : b.name} collided`,
+          a.isPlayer || b.isPlayer,
+        );
         a.eventBumped = true;
         b.eventBumped = true;
         const p = a.position;
@@ -121,6 +148,7 @@ export class Match {
       if (bot.speed > IMPACT.wallSafeSpeed) {
         bot.hitCooldown = IMPACT.cooldown;
         bot.hurt((bot.speed - IMPACT.wallSafeSpeed) * IMPACT.wallPerSpeed, 'wall');
+        this.note('wall', `${bot.isPlayer ? 'You' : bot.name} drove into a wall`, bot.isPlayer);
         this.noteDeaths();
       }
     });
@@ -207,6 +235,7 @@ export class Match {
       if (b.alive || b.deathOrder !== 0) continue;
       b.deathOrder = ++this.deaths;
       b.deathAt = MATCH_SECONDS - this.timeLeft;
+      this.note('death', `${b.isPlayer ? 'You are' : b.name + ' is'} scrap: ${b.deathReason}`, b.isPlayer);
       const p = b.position;
       this.sparks(p.x, p.y, 46, P.hot, 5);
       this.slowmo = 0.9;
@@ -217,6 +246,19 @@ export class Match {
       // stops taking part in the simulation.
       this.world.queueUpdate(() => b.body.setActive(false));
     }
+  }
+
+  /** Log something that happened, for the feed and the speakers. */
+  private note(kind: EventKind, text: string, isPlayer: boolean, power = 0) {
+    this.events.push({
+      seq: ++this.eventSeq,
+      kind,
+      at: MATCH_SECONDS - this.timeLeft,
+      text,
+      power,
+      isPlayer,
+    });
+    if (this.events.length > 40) this.events.shift();
   }
 
   // ---------------------------------------------------------------- effects
@@ -246,7 +288,13 @@ export class Match {
   private tryFire(bot: Bot) {
     const power = Math.max(0, Math.min(GUN.maxPower, bot.controls.fire));
     bot.controls.fire = 0;
-    if (power < GUN.minPower || bot.gunHeat > 0 || !bot.alive) return;
+    if (power < GUN.minPower || !bot.alive) return;
+    if (bot.gunHeat > 0) {
+      // Asking a hot gun to fire does nothing at all, which is invisible and
+      // confusing. At least make it audible.
+      this.note('heatblock', '', bot.isPlayer);
+      return;
+    }
 
     bot.gunHeat = GUN.heat(power);
     bot.shotsFired++;
@@ -261,6 +309,7 @@ export class Match {
       owner: bot,
       dead: false,
     });
+    this.note('fire', '', bot.isPlayer, power);
     this.sparks(m.x, m.y, 5, P.spark, 1.6 * power);
     this.shake = Math.min(8, this.shake + power * 0.4);
   }
@@ -293,6 +342,12 @@ export class Match {
           b.dead = true;
           const dmg = GUN.damage(b.power);
           bot.hurt(dmg, 'shot', b.owner.name);
+          this.note(
+            'hit',
+            `${b.owner.isPlayer ? 'You' : b.owner.name} hit ${bot.isPlayer ? 'you' : bot.name} for ${Math.round(dmg)}`,
+            bot.isPlayer || b.owner.isPlayer,
+            b.power,
+          );
           bot.eventShot = true;
           b.owner.damageDealt += dmg;
           b.owner.shotsHit++;

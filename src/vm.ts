@@ -57,6 +57,8 @@ export interface Senses {
   target_bearing: number;
   target_age: number;
   target_health: number;
+  target_speed: number;
+  target_closing: number;
   gun_heat: number;
   my_health: number;
   my_speed: number;
@@ -240,6 +242,8 @@ export class ClankVM {
       target_bearing: t ? Math.abs(hullTurn) : 180,
       target_age: t ? t.age : 999,
       target_health: t ? t.health : 0,
+      target_speed: t ? t.speed : 0,
+      target_closing: t ? t.closing : 0,
       gun_heat: b.gunHeat,
       my_health: b.healthPct,
       my_speed: b.speed,

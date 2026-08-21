@@ -592,6 +592,56 @@ export function checkBlocks(): CheckResult[] {
     );
   }
 
+  // ------------------------------------------------------- reading the enemy
+  {
+    const mover = prog([n('forever', {}, [n('drive', { dir: 'forward', n: 5 })])]);
+    // Placed with plenty of room in front of them, or they arrive at a wall and
+    // are measured stationary.
+    const m = scenario(prog([n('sweep', { dir: 'right' }), n('forever', {}, [n('stop', { n: 1 })])]), {
+      me: [10, 27, 0],
+      them: [40, 10, 90],
+      themProgram: mover,
+    });
+    run(m, 1.5);
+    const vm = m.vms.get(m.bots[0])!;
+    const s = vm.senses(m);
+    add(
+      'Sensing',
+      "the target's speed reads their real speed",
+      near(s.target_speed, m.bots[1].speed, 1.5) && s.target_speed > 3,
+      `reads ${s.target_speed.toFixed(1)} m/s against an actual ${m.bots[1].speed.toFixed(1)}`,
+    );
+  }
+  {
+    // Driving straight at a parked bot: the gap is closing, so the sign is positive.
+    const m = scenario(prog([n('sweep', { dir: 'right' }), n('forever', {}, [n('drive', { dir: 'forward', n: 5 })])]), {
+      me: [27, 27, 90],
+      them: [27, 45, 0],
+    });
+    run(m, 2);
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'closing speed is positive when you are closing',
+      s.target_closing > 2,
+      `reads ${s.target_closing.toFixed(1)} m/s while driving at a parked bot`,
+    );
+  }
+  {
+    const m = scenario(prog([n('sweep', { dir: 'right' }), n('forever', {}, [n('drive', { dir: 'backward', n: 5 })])]), {
+      me: [27, 27, 90],
+      them: [27, 45, 0],
+    });
+    run(m, 2);
+    const s = m.vms.get(m.bots[0])!.senses(m);
+    add(
+      'Sensing',
+      'closing speed goes negative when you back away',
+      s.target_closing < -1,
+      `reads ${s.target_closing.toFixed(1)} m/s while reversing away`,
+    );
+  }
+
   // ------------------------------------------------------------ sensing
   //
   // "clear space ahead of me" exists because "distance to the nearest wall"

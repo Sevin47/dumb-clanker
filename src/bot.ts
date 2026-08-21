@@ -40,6 +40,12 @@ export interface Contact {
   health: number;
   heading: number;
   speed: number;
+  /**
+   * How fast the gap was closing when the beam last crossed them, in metres per
+   * second. Positive means coming at you. This is the pair's *relative* motion,
+   * so it counts your own movement as well as theirs.
+   */
+  closing: number;
 }
 
 export interface Controls {
@@ -270,16 +276,26 @@ export class Bot {
     while (bearing > Math.PI) bearing -= Math.PI * 2;
     while (bearing < -Math.PI) bearing += Math.PI * 2;
 
+    // Closing speed is the relative velocity projected onto the line between
+    // the two bots. Worked out here, at the moment of the scan, because it is
+    // only meaningful with both positions fresh.
+    const range = Math.hypot(dx, dy);
+    const mine = this.body.getLinearVelocity();
+    const theirs = other.body.getLinearVelocity();
+    const closing =
+      range < 0.001 ? 0 : ((mine.x - theirs.x) * dx + (mine.y - theirs.y) * dy) / range;
+
     const contact: Contact = {
       id: other.id,
       age: 0,
       x: q.x,
       y: q.y,
-      distance: Math.hypot(dx, dy),
+      distance: range,
       bearing,
       health: other.healthPct,
       heading: other.heading,
       speed: other.speed,
+      closing,
     };
     this.contacts.set(other.id, contact);
     this.target = contact;

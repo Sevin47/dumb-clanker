@@ -118,6 +118,18 @@ export const SENSORS: SensorDef[] = [
   },
   { id: 'target_health', label: 'the target’s health %', unit: 'percent', help: 'How hurt they were when you last saw them, 0 to 100.' },
   {
+    id: 'target_speed',
+    label: "the target's speed",
+    unit: 'speed',
+    help: 'How fast they were moving when the beam last crossed them, in metres per second. A bot standing still is worth a heavy shot. One doing 8 will not be there when a slow round arrives.',
+  },
+  {
+    id: 'target_closing',
+    label: 'how fast the gap is closing',
+    unit: 'speed',
+    help: 'Metres per second the range is shrinking, when the beam last crossed them. Positive means the gap is closing, negative means it is opening. It counts your own movement too, so backing away shows up here.',
+  },
+  {
     id: 'gun_heat',
     label: 'my gun heat',
     unit: 'heat',
